@@ -1,33 +1,51 @@
 
-function scoreRapido() {
-    const frecuencia = {};
-    const resultados = [];
+function obtenerPatron(secreta, intento) {
+    const resultado = Array(5).fill(0); // 0 = gris
+    const usada = Array(5).fill(false);
 
-    // Contar frecuencia de cada letra en todo el diccionario
-    for (const palabra of diccionario) {
-        const letrasUnicas = new Set(palabra);
-        for (const letra of letrasUnicas) {
-            frecuencia[letra] = (frecuencia[letra] || 0) + 1;
+    // Primero, marcar los verdes
+    for (let i = 0; i < 5; i++) {
+        if (intento[i] === secreta[i]) {
+            resultado[i] = 2;
+            usada[i] = true;
         }
     }
 
-    // Calcular score para cada palabra según la frecuencia de sus letras únicas
-    for (const palabra of diccionario) {
-        const letrasUnicas = new Set(palabra);
-        let score = 0;
-        for (const letra of letrasUnicas) {
-            score += frecuencia[letra];
+    // Luego, marcar amarillos
+    for (let i = 0; i < 5; i++) {
+        if (resultado[i] === 0) {
+            for (let j = 0; j < 5; j++) {
+                if (!usada[j] && intento[i] === secreta[j]) {
+                    resultado[i] = 1;
+                    usada[j] = true;
+                    break;
+                }
+            }
         }
-        resultados.push({ palabra, score });
     }
 
-    // Ordenar de mayor a menor score
-    resultados.sort((a, b) => b.score - a.score);
-
-    return resultados;
+    return resultado.join('');
 }
 
-// Ejemplo de uso:
+function entropiaExacta(palabraCandidata, posibles) {
+    const patrones = {};
+
+    for (const secreta of posibles) {
+        const patron = obtenerPatron(secreta, palabraCandidata);
+        patrones[patron] = (patrones[patron] || 0) + 1;
+    }
+
+    let entropia = 0;
+    const total = posibles.length;
+
+    for (const patron in patrones) {
+        const p = patrones[patron] / total;
+        entropia += p * Math.log2(1 / p);
+    }
+
+    return entropia;
+}
+
 function calcular() {
     const input = document.getElementById("guess").value.toUpperCase();
     if (!/^[A-ZÑ]{5}$/.test(input)) {
@@ -35,9 +53,17 @@ function calcular() {
         return;
     }
 
-    let salida = `Has introducido: ${input}\n\nMejores 10 palabras por Score Rápido:\n`;
-    const top10 = scoreRapido().slice(0, 10);
-    salida += top10.map(p => `${p.palabra} (score: ${p.score})`).join("\n");
+    const posibles = diccionario.slice(); // En el futuro, aplicar filtros por colores aquí
+    const resultados = [];
 
+    for (const palabra of diccionario) {
+        const e = entropiaExacta(palabra, posibles);
+        resultados.push({ palabra, entropia: e });
+    }
+
+    resultados.sort((a, b) => b.entropia - a.entropia);
+
+    let salida = `Has introducido: ${input}\n\nTop 10 palabras por entropía exacta:\n`;
+    salida += resultados.slice(0, 10).map(p => `${p.palabra} (H: ${p.entropia.toFixed(3)})`).join("\n");
     document.getElementById("output").innerText = salida;
 }
