@@ -1,23 +1,55 @@
-﻿
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wordle Solver ES</title>
-    <link rel="stylesheet" href="style.css">	<script src="diccionario.js">	</script>	
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>Wordle Solver en Español</h1>
 
     <div class="input-area">
         <label for="guess">Introduce una palabra de 5 letras:</label>
-        <input type="text" id="guess" maxlength="5">
-        <button onclick="calcular()">Calcular</button>
+        <input type="text" id="guess" maxlength="5" oninput="actualizarColores()">
     </div>
 
+    <div id="color-selectors">
+        <label>Selecciona los colores para cada letra:</label>
+        <div class="color-row">
+            <select id="color0">
+                <option value="gris">Gris</option>
+                <option value="amarillo">Amarillo</option>
+                <option value="verde">Verde</option>
+            </select>
+            <select id="color1">
+                <option value="gris">Gris</option>
+                <option value="amarillo">Amarillo</option>
+                <option value="verde">Verde</option>
+            </select>
+            <select id="color2">
+                <option value="gris">Gris</option>
+                <option value="amarillo">Amarillo</option>
+                <option value="verde">Verde</option>
+            </select>
+            <select id="color3">
+                <option value="gris">Gris</option>
+                <option value="amarillo">Amarillo</option>
+                <option value="verde">Verde</option>
+            </select>
+            <select id="color4">
+                <option value="gris">Gris</option>
+                <option value="amarillo">Amarillo</option>
+                <option value="verde">Verde</option>
+            </select>
+        </div>
+    </div>
+
+    <button onclick="calcular()">Calcular</button>
     <div id="output"></div>
 
+    <script src="diccionario.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

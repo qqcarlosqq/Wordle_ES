@@ -3,7 +3,7 @@ function obtenerPatron(secreta, intento) {
     const resultado = Array(5).fill(0); // 0 = gris
     const usada = Array(5).fill(false);
 
-    // Primero, marcar los verdes
+    // Marcar verdes
     for (let i = 0; i < 5; i++) {
         if (intento[i] === secreta[i]) {
             resultado[i] = 2;
@@ -11,7 +11,7 @@ function obtenerPatron(secreta, intento) {
         }
     }
 
-    // Luego, marcar amarillos
+    // Marcar amarillos
     for (let i = 0; i < 5; i++) {
         if (resultado[i] === 0) {
             for (let j = 0; j < 5; j++) {
@@ -29,7 +29,6 @@ function obtenerPatron(secreta, intento) {
 
 function entropiaExacta(palabraCandidata, posibles) {
     const patrones = {};
-
     for (const secreta of posibles) {
         const patron = obtenerPatron(secreta, palabraCandidata);
         patrones[patron] = (patrones[patron] || 0) + 1;
@@ -37,13 +36,44 @@ function entropiaExacta(palabraCandidata, posibles) {
 
     let entropia = 0;
     const total = posibles.length;
-
     for (const patron in patrones) {
         const p = patrones[patron] / total;
         entropia += p * Math.log2(1 / p);
     }
 
     return entropia;
+}
+
+function leerColores() {
+    const colores = [];
+    for (let i = 0; i < 5; i++) {
+        colores.push(document.getElementById("color" + i).value);
+    }
+    return colores;
+}
+
+function filtrarDiccionario(palabra, colores) {
+    return diccionario.filter(pal => {
+        for (let i = 0; i < 5; i++) {
+            const letra = palabra[i];
+            const color = colores[i];
+
+            if (color === "verde" && pal[i] !== letra) return false;
+            if (color === "amarillo" && (!pal.includes(letra) || pal[i] === letra)) return false;
+            if (color === "gris" && pal.includes(letra)) {
+                // Si la letra aparece como verde o amarillo en otra posición, la permitimos
+                let apareceEnOtra = false;
+                for (let j = 0; j < 5; j++) {
+                    if (j !== i && palabra[j] === letra && (colores[j] === "verde" || colores[j] === "amarillo")) {
+                        apareceEnOtra = true;
+                        break;
+                    }
+                }
+                if (!apareceEnOtra) return false;
+            }
+        }
+        return true;
+    });
 }
 
 function calcular() {
@@ -53,7 +83,8 @@ function calcular() {
         return;
     }
 
-    const posibles = diccionario.slice(); // En el futuro, aplicar filtros por colores aquí
+    const colores = leerColores();
+    const posibles = filtrarDiccionario(input, colores);
     const resultados = [];
 
     for (const palabra of diccionario) {
@@ -63,7 +94,7 @@ function calcular() {
 
     resultados.sort((a, b) => b.entropia - a.entropia);
 
-    let salida = `Has introducido: ${input}\n\nTop 10 palabras por entropía exacta:\n`;
+    let salida = `Has introducido: ${input}\nColores: ${colores.join(", ")}\n\nPalabras candidatas: ${posibles.length}\n\nTop 10 palabras por entropía exacta:\n`;
     salida += resultados.slice(0, 10).map(p => `${p.palabra} (H: ${p.entropia.toFixed(3)})`).join("\n");
     document.getElementById("output").innerText = salida;
 }
