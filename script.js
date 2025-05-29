@@ -26,6 +26,10 @@ function guardarIntento() {
 
 function mostrarHistorial() {
     const div = document.getElementById("historial");
+    if (historial.length === 0) {
+        div.innerHTML = "";
+        return;
+    }
     div.innerHTML = "<b>Intentos guardados:</b><br>" + historial.map(h =>
         `${h.palabra} → ${h.colores.join(", ")}`).join("<br>");
 }
@@ -35,6 +39,7 @@ function resetear() {
     document.getElementById("tablaCandidatas").querySelector("tbody").innerHTML = "";
     document.getElementById("tablaDescartadoras").querySelector("tbody").innerHTML = "";
     document.getElementById("historial").innerText = "";
+    document.getElementById("nCandidatas").innerText = "";
 }
 
 function filtrarConHistorial(dic) {
@@ -120,6 +125,7 @@ function calcular() {
         entropia: entropiaExacta(p, posibles)
     })).sort((a, b) => b.entropia - a.entropia).slice(0, 10);
 
+    document.getElementById("nCandidatas").innerText = `(${posibles.length} palabras)`;
     renderTabla("tablaCandidatas", listaCandidatas);
     renderTabla("tablaDescartadoras", listaDescartadoras);
 }
