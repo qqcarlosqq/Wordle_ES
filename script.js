@@ -8,5 +8,5 @@
     let salida = `Has introducido: ${input}\n\nPrimeras 5 palabras del diccionario:\n`;
     salida += diccionario.slice(0, 5).join("\n");
 
-    document.getElementById("output").innerText = salida\n(la lógica aún está por implementarse)`;
+    document.getElementById("output").innerText = salida;
 }
