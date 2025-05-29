@@ -4,23 +4,59 @@ body {
     padding: 20px;
     background-color: #f8f8f8;
 }
+
 h1 {
     color: #333;
 }
+
 .input-area {
     margin-bottom: 20px;
 }
+
 input {
     padding: 5px;
     font-size: 16px;
     width: 200px;
 }
+
+select {
+    margin-right: 5px;
+    margin-bottom: 10px;
+}
+
 button {
     padding: 6px 12px;
     font-size: 16px;
-    margin-left: 10px;
+    margin-right: 10px;
+    margin-bottom: 20px;
 }
-#output {
+
+#output-container {
+    display: flex;
+    gap: 40px;
     margin-top: 20px;
-    white-space: pre-wrap;
+}
+
+.result-column {
+    flex: 1;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid #ccc;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+#historial {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #444;
+    white-space: pre-line;
 }

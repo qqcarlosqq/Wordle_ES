@@ -32,7 +32,8 @@ function mostrarHistorial() {
 
 function resetear() {
     historial = [];
-    document.getElementById("output").innerText = "";
+    document.getElementById("tablaCandidatas").querySelector("tbody").innerHTML = "";
+    document.getElementById("tablaDescartadoras").querySelector("tbody").innerHTML = "";
     document.getElementById("historial").innerText = "";
 }
 
@@ -103,24 +104,37 @@ function entropiaExacta(palabraCandidata, posibles) {
         const p = patrones[patron] / total;
         entropia += p * Math.log2(1 / p);
     }
+
     return entropia;
 }
 
 function calcular() {
     const posibles = filtrarConHistorial(diccionario);
-    const listaCandidatas = posibles.slice(0, 200);
-
-    const entropias = diccionario.map(p => ({
+    const listaCandidatas = posibles.map(p => ({
         palabra: p,
         entropia: entropiaExacta(p, posibles)
-    }));
+    })).sort((a, b) => b.entropia - a.entropia).slice(0, 200);
 
-    entropias.sort((a, b) => b.entropia - a.entropia);
+    const listaDescartadoras = diccionario.map(p => ({
+        palabra: p,
+        entropia: entropiaExacta(p, posibles)
+    })).sort((a, b) => b.entropia - a.entropia).slice(0, 10);
 
-    let salida = `Palabras candidatas (${posibles.length}):\n`;
-    salida += listaCandidatas.map(p => p).join(", ");
-    salida += "\n\nPalabras para descartar más opciones:\n";
-    salida += entropias.slice(0, 10).map(p => `${p.palabra} (H: ${p.entropia.toFixed(3)})`).join("\n");
+    renderTabla("tablaCandidatas", listaCandidatas);
+    renderTabla("tablaDescartadoras", listaDescartadoras);
+}
 
-    document.getElementById("output").innerText = salida;
+function renderTabla(idTabla, lista) {
+    const tbody = document.getElementById(idTabla).querySelector("tbody");
+    tbody.innerHTML = "";
+    for (const elem of lista) {
+        const fila = document.createElement("tr");
+        const celdaPalabra = document.createElement("td");
+        celdaPalabra.textContent = elem.palabra;
+        const celdaScore = document.createElement("td");
+        celdaScore.textContent = elem.entropia.toFixed(3);
+        fila.appendChild(celdaPalabra);
+        fila.appendChild(celdaScore);
+        tbody.appendChild(fila);
+    }
 }

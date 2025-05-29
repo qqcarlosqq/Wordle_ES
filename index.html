@@ -1,4 +1,4 @@
-﻿
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -18,41 +18,34 @@
     <div id="color-selectors">
         <label>Selecciona los colores para cada letra:</label>
         <div class="color-row">
-            <select id="color0">
-                <option value="gris">Gris</option>
-                <option value="amarillo">Amarillo</option>
-                <option value="verde">Verde</option>
-            </select>
-            <select id="color1">
-                <option value="gris">Gris</option>
-                <option value="amarillo">Amarillo</option>
-                <option value="verde">Verde</option>
-            </select>
-            <select id="color2">
-                <option value="gris">Gris</option>
-                <option value="amarillo">Amarillo</option>
-                <option value="verde">Verde</option>
-            </select>
-            <select id="color3">
-                <option value="gris">Gris</option>
-                <option value="amarillo">Amarillo</option>
-                <option value="verde">Verde</option>
-            </select>
-            <select id="color4">
-                <option value="gris">Gris</option>
-                <option value="amarillo">Amarillo</option>
-                <option value="verde">Verde</option>
-            </select>
+            <select id="color0"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
+            <select id="color1"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
+            <select id="color2"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
+            <select id="color3"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
+            <select id="color4"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
         </div>
     </div>
 
-    <button onclick="calcular()">Calcular</button>
-    <div id="output"></div>
+    <div>
+        <button onclick="guardarIntento()">Guardar intento</button>
+        <button onclick="resetear()">Resetear</button>
+        <button onclick="calcular()">Calcular</button>
+    </div>
 
-  <button onclick="guardarIntento()">Guardar intento</button>
-<button onclick="resetear()">Resetear</button>
-<button onclick="calcular()">Calcular</button>
-<div id="historial"></div>  <script src="diccionario.js"></script>
+    <div id="output-container">
+        <div class="result-column">
+            <h3>Palabras candidatas</h3>
+            <table id="tablaCandidatas"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="result-column">
+            <h3>Palabras que descartan más</h3>
+            <table id="tablaDescartadoras"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
+        </div>
+    </div>
+
+    <div id="historial"></div>
+
+    <script src="diccionario.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
