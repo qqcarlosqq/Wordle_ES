@@ -2,6 +2,7 @@
 // ====================================================
 
 // ------------ Config --------------------------------
+document.addEventListener('DOMContentLoaded', buildSelects);
 const COLORS = ["gris","amarillo","verde"];
 const TOP_N_OUT = 200;       // máx. filas por tabla (resolver)
 const TOP_N_DESC = 15;       // descartar / verde
@@ -25,7 +26,7 @@ function buildSelects(){
     sel.value='gris';
   }
 }
-buildSelects();
+
 
 // ------------ Entrada y validación ------------------
 function leerColores(){
