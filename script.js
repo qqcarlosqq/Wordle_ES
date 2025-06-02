@@ -1,194 +1,201 @@
-// Wordle Solver – versión web equivalente al Excel v16
-// ====================================================
+// Wordle Solver – español (web)  — versión estable
+// ===============================================
 
-// ------------ Config --------------------------------
-document.addEventListener('DOMContentLoaded', buildSelects);
+// --------- Configuración ---------
 const COLORS = ["gris","amarillo","verde"];
-const TOP_N_OUT = 200;       // máx. filas por tabla (resolver)
-const TOP_N_DESC = 15;       // descartar / verde
+const TOP_N_OUT = 200;   // filas de la tabla de resolver
+const TOP_N_DESC = 15;   // filas para descartar / verde
 
-// ------------ Estado --------------------------------
-let history = [];   // [{word:'RASEN', colors:[...]}]
+// --------- Estado -----------
+let historial = [];             // [{palabra, colores[5]}]
 
-// ------------ Utilidades ----------------------------
-function normalizar(w){return w.toUpperCase().replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U');}
+// --------- Utilidades generales ----------
+function normalizar(txt){
+  return txt.toUpperCase()
+            .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
+            .replace(/Ó/g,'O').replace(/Ú|Ü/g,'U');
+}
+function alerta(msg){ window.alert(msg); }
 
-function showAlert(msg){window.alert(msg);}
-
-// Crea opciones para selects
+// --------- Select de colores ------------
 function buildSelects(){
   for(let i=0;i<5;i++){
     const sel=document.getElementById('color'+i);
+    sel.innerHTML='';
     COLORS.forEach(c=>{
-      const opt=document.createElement('option');opt.value=c;opt.textContent=c.charAt(0).toUpperCase()+c.slice(1);
+      const opt=document.createElement('option');
+      opt.value=c;  opt.textContent=c.charAt(0).toUpperCase()+c.slice(1);
       sel.appendChild(opt);
     });
     sel.value='gris';
   }
 }
+document.addEventListener('DOMContentLoaded', buildSelects);
 
-
-// ------------ Entrada y validación ------------------
+// --------- Entrada de intentos ----------
 function leerColores(){
   const arr=[];
-  for(let i=0;i<5;i++){arr.push(document.getElementById('color'+i).value);}
+  for(let i=0;i<5;i++) arr.push(document.getElementById('color'+i).value);
   return arr;
 }
-
 function guardarIntento(){
-  const word = normalizar(document.getElementById('guess').value.trim());
-  if(!/^[A-ZÑ]{5}$/.test(word)){showAlert("Introduce exactamente 5 letras (A‑Z/Ñ).");return;}
-  if(!diccionario.includes(word)){if(!confirm("La palabra '"+word+"' no está en el diccionario ¿continuar?"))return;}
-  history.push({word,colors:leerColores()});
-  document.getElementById('guess').value='';
-  for(let i=0;i<5;i++)document.getElementById('color'+i).value='gris';
-  renderHistorial();
-}
-
-function resetear(){
-  history=[];
-  ['tablaResolver','tablaDescartar','tablaVerde','tablaLetras'].forEach(id=>document.getElementById(id).querySelector('tbody').innerHTML='');
-  renderHistorial();
-}
-
-function renderHistorial(){
-  const div=document.getElementById('historial');
-  div.textContent = history.map(h=>h.word+' → '+h.colors.join(', ')).join('\n');
-}
-
-// ------------ Motor Wordle --------------------------
-function filtrar(dic){
-  let posibles=dic;
-  for(const h of history){
-    posibles = posibles.filter(pal=>cumplePatron(pal,h.word,h.colors));
+  let w = normalizar(document.getElementById('guess').value.trim());
+  if(!/^[A-ZÑ]{5}$/.test(w)){ alerta("Introduce exactamente 5 letras."); return; }
+  if(!diccionario.includes(w)){
+     if(!confirm("La palabra '"+w+"' no está en el diccionario. ¿Continuar?")) return;
   }
-  return posibles;
+  historial.push({palabra:w, colores:leerColores()});
+  document.getElementById('guess').value='';
+  buildSelects();              // reinicia selects en gris
+  renderHistorial();
+}
+function renderHistorial(){
+  const pre=document.getElementById('historial');
+  pre.textContent = historial.map(h=>h.palabra+' → '+h.colores.join(', ')).join('\n');
+}
+function resetear(){
+  historial=[]; renderHistorial();
+  ['tablaResolver','tablaDescartar','tablaVerde','tablaLetras'].forEach(id=>{
+      document.getElementById(id).querySelector('tbody').innerHTML='';
+  });
 }
 
-function cumplePatron(pal, intento, colores){
+// --------- Motor de filtrado ------------
+function cumplePatron(pal,intento,colores){
   for(let i=0;i<5;i++){
-    const letra=intento[i];
-    switch(colores[i]){
-      case 'verde': if(pal[i]!==letra) return false; break;
-      case 'amarillo': if(!pal.includes(letra)||pal[i]===letra) return false; break;
-      case 'gris':
-        // letra gris excepto si aparece en otra posición marcada verde/amarilla
-        let presenteEnOtra=false;
-        for(let j=0;j<5;j++){if(j!==i && intento[j]===letra && colores[j]!=='gris'){presenteEnOtra=true;break;}}
-        if(!presenteEnOtra && pal.includes(letra)) return false;
-        break;
+    const ch=intento[i];
+    const estado=colores[i];
+    if(estado==='verde' && pal[i]!==ch) return false;
+    if(estado==='amarillo'){
+      if(pal[i]===ch) return false;
+      if(!pal.includes(ch)) return false;
+    }
+    if(estado==='gris'){
+      let presenteOtra=false;
+      for(let j=0;j<5;j++){
+        if(j!==i && intento[j]===ch && colores[j]!=='gris'){presenteOtra=true;break;}
+      }
+      if(!presenteOtra && pal.includes(ch)) return false;
     }
   }
   return true;
 }
+function filtrar(dic){
+  let cand=dic;
+  for(const h of historial) cand=cand.filter(p=>cumplePatron(p,h.palabra,h.colores));
+  return cand;
+}
 
-// patrón codificado 0 gris,1 amarillo,2 verde (string de 5 dígitos)
-function obtenerPatron(secret, intento){
-  const res=Array(5).fill(0);
-  const usado=Array(5).fill(false);
-  for(let i=0;i<5;i++){ if(intento[i]===secret[i]){res[i]=2;usado[i]=true;} }
+// --------- Entropía exacta --------------
+function patronKey(secret,guess){
+  const res=Array(5).fill(0), usado=Array(5).fill(false);
+  for(let i=0;i<5;i++){ if(secret[i]===guess[i]){res[i]=2;usado[i]=true;} }
   for(let i=0;i<5;i++){
     if(res[i]===0){
       for(let j=0;j<5;j++){
-        if(!usado[j]&&intento[i]===secret[j]){
-          res[i]=1;usado[j]=true;break;
-        }
+        if(!usado[j]&&guess[i]===secret[j]){res[i]=1;usado[j]=true;break;}
       }
     }
   }
   return res.join('');
 }
-
-function entropiaExacta(pal,candidatos){
-  const patrones={};
-  for(const sec of candidatos){
-    const pat=obtenerPatron(sec,pal);
-    patrones[pat]=(patrones[pat]||0)+1;
+function entropiaExacta(guess,cand){
+  const mapa={}; const total=cand.length;
+  for(const sol of cand){
+    const k=patronKey(sol,guess);
+    mapa[k]=(mapa[k]||0)+1;
   }
-  let e=0,total=candidatos.length;
-  for(const k in patrones){
-    const p=patrones[k]/total;
+  let e=0;
+  for(const k in mapa){
+    const p=mapa[k]/total;
     e+=p*Math.log2(1/p);
   }
   return e;
 }
 
-// ------------ Listas y scores -----------------------
+// --------- Generar listas ---------------
 function generarListas(){
   const cand=filtrar(diccionario);
-  if(cand.length===0){showAlert("Ninguna palabra cumple las pistas.");return;}
+  if(cand.length===0){alerta("Ninguna palabra cumple las pistas.");return;}
 
-  // --- lista resolver (sobre candidatas)
-  const listaResolver = cand.map(w=>({w, h:entropiaExacta(w,cand)}))
-                            .sort((a,b)=>b.h-a.h)
-                            .slice(0,TOP_N_OUT);
+  // --- frecuencias f[ch]
+  const f={};
+  for(const w of cand){ for(const ch of w){f[ch]=(f[ch]||0)+1;} }
 
-  // --- lista descartadoras (todas palabras vs cand) con penalización por letras vistas
-  const knownLetters = new Set();
-  for(const h of history){
-    h.colors.forEach((c,i)=>{ if(c!=='gris') knownLetters.add(h.word[i]); });
+  // --- conjuntos de letras conocidas / grises
+  const setKnown=new Set(), setGris=new Set();
+  for(const h of historial){
+    h.colores.forEach((c,i)=>{
+      const ch=h.palabra[i];
+      if(c==='verde'||c==='amarillo') setKnown.add(ch);
+      else if(c==='gris'){
+        // comprobar si la misma letra aparece en pos verde/amarilla
+        let presente=false;
+        for(let j=0;j<5;j++){
+          if(j!==i && h.palabra[j]===ch && h.colores[j]!=='gris'){presente=true;break;}
+        }
+        if(!presente) setGris.add(ch);
+      }
+    });
   }
 
-  function scoreExploratoria(w){
-    let rep=false, total=0;
-    const usadas=new Set();
+  // --- SugerirExploratorias (idéntico a VBA)
+  const probeCands=[];
+  for(const w of diccionario){
+    const usadas=new Set(); let score=0, rep=false;
     for(const ch of w){
       if(usadas.has(ch)) continue;
       usadas.add(ch);
-      if(knownLetters.has(ch)) rep=true;
-      else total++;
+      if(!setKnown.has(ch) && !setGris.has(ch)){
+        score+= (f[ch]||0);
+      }else{ rep=true; }
     }
-    return total - (rep?1:0);
+    if(rep) score-=5;
+    if(score>0) probeCands.push({w,score});
   }
 
-  const candidatasProbe = diccionario.map(w=>({w,pen:scoreExploratoria(w)}))
-                                     .filter(o=>o.pen>0);
-
-  const listaDescartar = candidatasProbe.map(o=>({w:o.w,h:entropiaExacta(o.w,cand)}))
-                                        .sort((a,b)=>b.h-a.h)
-                                        .slice(0,TOP_N_DESC);
-
-  // --- repetición verde
-  const verdes=new Set();
-  for(const h of history){
-    h.colors.forEach((c,i)=>{ if(c==='verde') verdes.add(h.word[i]); });
-  }
-  const listaVerde = diccionario.filter(w=>{
-                            for(const ch of verdes){
-                              if(w.includes(ch) && w.split(ch).length-1>=2) return true;
-                              if(w.includes(ch) && !verdes.has(ch) ) return true;
-                            }
-                            return false;
-                          })
-                          .map(w=>({w,h:entropiaExacta(w,cand)}))
+  // --- Lista resolver
+  const listaResolver=cand.map(w=>({w,h:entropiaExacta(w,cand)}))
                           .sort((a,b)=>b.h-a.h)
-                          .slice(0,TOP_N_DESC);
+                          .slice(0,TOP_N_OUT);
 
-  // --- frecuencias
-  const freq = {};
-  for(const ch of "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"){
-    freq[ch]={count:0, words:0, rep:0};
-  }
+  // --- Lista descartar
+  const listaDescartar=probeCands.map(o=>({w:o.w,h:entropiaExacta(o.w,cand)}))
+                                 .sort((a,b)=>b.h-a.h)
+                                 .slice(0,TOP_N_DESC);
+
+  // --- Repetición verde
+  const verdes=new Set();
+  historial.forEach(h=>h.colores.forEach((c,i)=>{if(c==='verde') verdes.add(h.palabra[i]);}));
+  const listaVerde=diccionario.filter(w=>{
+                      for(const ch of verdes){
+                        if(w.includes(ch) && w.split(ch).length-1>=2) return true;
+                      } return false;
+                    })
+                    .map(w=>({w,h:entropiaExacta(w,cand)}))
+                    .sort((a,b)=>b.h-a.h)
+                    .slice(0,TOP_N_DESC);
+
+  // --- Frecuencias de letras
+  const freq={};
+  "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split('').forEach(ch=>freq[ch]={count:0,words:0,rep:0});
   for(const w of cand){
-    const used=new Set();
+    const seen=new Set(); const localCount={};
     for(const ch of w){
-      freq[ch].count++;
-      used.add(ch);
+      freq[ch].count++; seen.add(ch);
+      localCount[ch]=(localCount[ch]||0)+1;
     }
-    used.forEach(ch=>freq[ch].words++);
-    for(const ch of w){
-      if(w.split(ch).length-1>=2){freq[ch].rep++; }
-    }
+    seen.forEach(ch=>freq[ch].words++);
+    for(const ch in localCount){ if(localCount[ch]>=2) freq[ch].rep++; }
   }
-  const tablaFreq = Object.entries(freq)
-    .sort((a,b)=>b[1].words - a[1].words)
-    .map(([letra,v])=>({letra,...v}));
+  const listaFreq=Object.entries(freq).sort((a,b)=>b[1].words-a[1].words)
+                     .map(([letra,v])=>({letra,...v}));
 
-  // --- render
+  // --- Renderizado
   renderTabla('tablaResolver',listaResolver);
   renderTabla('tablaDescartar',listaDescartar);
   renderTabla('tablaVerde',listaVerde);
-  renderTablaFreq('tablaLetras',tablaFreq);
+  renderTablaFreq('tablaLetras',listaFreq);
 }
 
 function renderTabla(id,lista){
@@ -196,9 +203,12 @@ function renderTabla(id,lista){
   tbody.innerHTML='';
   for(const o of lista){
     const tr=document.createElement('tr');
-    const tdw=document.createElement('td');tdw.textContent=o.w;
-    const tds=document.createElement('td');tds.textContent=o.h.toFixed(2);
-    tr.appendChild(tdw);tr.appendChild(tds);tbody.appendChild(tr);
+    ['w','h'].forEach((k,idx)=>{
+      const td=document.createElement('td');
+      td.textContent = k==='h'? o[k].toFixed(2):o[k];
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
   }
 }
 function renderTablaFreq(id,lista){
@@ -207,13 +217,13 @@ function renderTablaFreq(id,lista){
   for(const o of lista){
     const tr=document.createElement('tr');
     ['letra','count','words','rep'].forEach(k=>{
-      const td=document.createElement('td');td.textContent=o[k];tr.appendChild(td);
+      const td=document.createElement('td'); td.textContent=o[k]; tr.appendChild(td);
     });
     tbody.appendChild(tr);
   }
 }
 
-// ----------- eventos UI -----------------------------
+// --------- Eventos UI --------------
 document.getElementById('btnGuardar').onclick=guardarIntento;
 document.getElementById('btnReset').onclick=resetear;
 document.getElementById('btnCalcular').onclick=generarListas;
