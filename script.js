@@ -99,12 +99,22 @@ function patronKey(secret,guess){
   }
   return res.join('');
 }
+
 function entropiaExacta(guess,cand){
-  const mapa={}; const total=cand.length;
+  const patternCount={};
+  const total=cand.length;
   for(const sol of cand){
     const k=patronKey(sol,guess);
-    mapa[k]=(mapa[k]||0)+1;
+    patternCount[k]=(patternCount[k]||0)+1;
   }
+  let sumSq=0;
+  for(const k in patternCount){
+    const cnt=patternCount[k];
+    sumSq+=cnt*cnt;
+  }
+  return total - (sumSq/total);   // expectativa de palabras eliminadas (como en Excel)
+}
+
   let e=0;
   for(const k in mapa){
     const p=mapa[k]/total;
