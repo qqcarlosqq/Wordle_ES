@@ -138,7 +138,3 @@ function renderTabla(idTabla, lista) {
         tbody.appendChild(fila);
     }
 }
-
-
-// -- rellenar selects cuando DOM listo --
-document.addEventListener('DOMContentLoaded', buildSelects);
