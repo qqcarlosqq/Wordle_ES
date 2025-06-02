@@ -1,62 +1,11 @@
-
-body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
-    background-color: #f8f8f8;
-}
-
-h1 {
-    color: #333;
-}
-
-.input-area {
-    margin-bottom: 20px;
-}
-
-input {
-    padding: 5px;
-    font-size: 16px;
-    width: 200px;
-}
-
-select {
-    margin-right: 5px;
-    margin-bottom: 10px;
-}
-
-button {
-    padding: 6px 12px;
-    font-size: 16px;
-    margin-right: 10px;
-    margin-bottom: 20px;
-}
-
-#output-container {
-    display: flex;
-    gap: 40px;
-    margin-top: 20px;
-}
-
-.result-column {
-    flex: 1;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-th, td {
-    text-align: left;
-    padding: 4px 8px;
-    border-bottom: 1px solid #ccc;
-    font-size: 14px;
-    white-space: nowrap;
-}
-
-#historial {
-    margin-top: 10px;
-    font-size: 14px;
-    color: #444;
-    white-space: pre-line;
-}
+body{font-family:Arial,Helvetica,sans-serif;margin:20px;background:#f8f8f8}
+h1{margin-bottom:10px}
+.input-area{margin-bottom:10px}
+select,input{padding:4px;font-size:15px;margin:2px}
+button{padding:6px 12px;font-size:15px;margin:4px}
+#output-container{display:flex;flex-wrap:wrap;gap:30px;margin-top:10px}
+.result-column{flex:1 1 260px;min-width:240px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:3px 6px;border-bottom:1px solid #ccc;font-size:14px}
+th{background:#eee;text-align:left}
+.historial{white-space:pre-line;font-size:14px;color:#444;margin-top:6px}

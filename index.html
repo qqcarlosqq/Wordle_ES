@@ -1,51 +1,52 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wordle Solver ES</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wordle Solver ES</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Wordle Solver en Español</h1>
+  <h1>Wordle Solver – Español</h1>
 
-    <div class="input-area">
-        <label for="guess">Introduce una palabra de 5 letras:</label>
-        <input type="text" id="guess" maxlength="5" oninput="actualizarColores()">
+  <section class="input-area">
+    <label for="guess">Introduce una palabra de 5 letras:</label>
+    <input type="text" id="guess" maxlength="5" autocomplete="off">
+    <button id="btnGuardar">Guardar intento</button>
+    <button id="btnReset">Resetear</button>
+    <button id="btnCalcular">Generar sugerencias</button>
+  </section>
+
+  <section id="color-selectors">
+    <label>Colores (gris / amarillo / verde):</label><br>
+    <select id="color0"></select><select id="color1"></select><select id="color2"></select><select id="color3"></select><select id="color4"></select>
+  </section>
+
+  <pre id="historial" class="historial"></pre>
+
+  <div id="output-container">
+    <div class="result-column">
+      <h3>Candidatas a resolver</h3>
+      <table id="tablaResolver"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
     </div>
-
-    <div id="color-selectors">
-        <label>Selecciona los colores para cada letra:</label>
-        <div class="color-row">
-            <select id="color0"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
-            <select id="color1"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
-            <select id="color2"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
-            <select id="color3"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
-            <select id="color4"><option value="gris">Gris</option><option value="amarillo">Amarillo</option><option value="verde">Verde</option></select>
-        </div>
+    <div class="result-column">
+      <h3>Mejores para descartar</h3>
+      <table id="tablaDescartar"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
     </div>
-
-    <div>
-        <button onclick="guardarIntento()">Guardar intento</button>
-        <button onclick="resetear()">Resetear</button>
-        <button onclick="calcular()">Calcular</button>
+    <div class="result-column">
+      <h3>Repetición verde</h3>
+      <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
     </div>
+  </div>
 
-    <div id="output-container">
-        <div class="result-column">
-            <h3>Palabras candidatas</h3>
-            <table id="tablaCandidatas"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-        </div>
-        <div class="result-column">
-            <h3>Palabras que descartan más</h3>
-            <table id="tablaDescartadoras"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-        </div>
-    </div>
+  <div class="result-column" style="max-width:640px;margin-top:20px">
+    <h3>Frecuencias de letras</h3>
+    <table id="tablaLetras"><thead><tr>
+      <th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
 
-    <div id="historial"></div>
-
-    <script src="diccionario.js"></script>
-    <script src="script.js"></script>
+  <script src="diccionario.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
