@@ -113,7 +113,15 @@ function entropiaExacta(guess,cand){
     sumSq+=cnt*cnt;
   }
   return total - (sumSq/total);   // expectativa de palabras eliminadas (como en Excel)
-}}
+}
+
+  let e=0;
+  for(const k in mapa){
+    const p=mapa[k]/total;
+    e+=p*Math.log2(1/p);
+  }
+  return e;
+}
 
 // --------- Generar listas ---------------
 function generarListas(){
