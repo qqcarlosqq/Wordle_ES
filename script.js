@@ -1,3 +1,4 @@
+var diccionarioList = (typeof diccionario!=='undefined') ? diccionario.map(w=>w.toUpperCase()) : [];
 
 /* --- Utilidad normalizar disponible globalmente --- */
 function normalizar(w){
