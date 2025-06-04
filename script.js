@@ -1,219 +1,349 @@
 // Wordle Solver – versión web equivalente al Excel v16
 // ====================================================
+// Reescrito 2025‑06‑04 para igualar la lógica del workbook Excel VBA
+//   • EntropiaExacta       :  esperanza de eliminadas  (total − Σ cnt² / total)
+//   • ScoreRapido          :  suma de frecuencias de letras únicas dentro de la lista
+//   • SugerirExploratorias :  port directo de la macro VBA (v16)
+//   • SugerirVerdesRep     :  port directo de la macro VBA (v16)
+//   • Tabla de letras      :  corrige el cómputo de palabras con letra repetida
+//   • Dropdown robusto     :  opciones permanentes, nunca vacías
+//
+//  Autor: ChatGPT 2025‑06‑04
+// ----------------------------------------------------
+document.addEventListener('DOMContentLoaded', init);
 
-// ------------ Config --------------------------------
-document.addEventListener('DOMContentLoaded', buildSelects);
 const COLORS = ["gris","amarillo","verde"];
-const TOP_N_OUT = 200;       // máx. filas por tabla (resolver)
-const TOP_N_DESC = 15;       // descartar / verde
+const TOP_N_OUT  = 200; // Máx. filas en tabla «Resolver»
+const TOP_N_DESC = 15;  // Longitud de tablas «Descartar» y «Repetición verde»
+const EXACT_THRESHOLD = 800; // Límite para usar EntropiaExacta
 
-// ------------ Estado --------------------------------
-let history = [];   // [{word:'RASEN', colors:[...]}]
+// ----------------------------------------------------
+//  Estado
+// ----------------------------------------------------
+let history = [];       // [{word:'RASEN', colors:['gris','verde',...]}]
+let diccionario = [];   // cargado dinámicamente desde diccionario.js
 
-// ------------ Utilidades ----------------------------
-function normalizar(w){return w.toUpperCase().replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U');}
+if (typeof diccionarioES !== 'undefined') {
+  diccionario = diccionarioES.map(w => w.toUpperCase());
+}
 
-function showAlert(msg){window.alert(msg);}
+// ----------------------------------------------------
+//  Utilidades
+// ----------------------------------------------------
+function normalizar(w) {
+  return w.toUpperCase()
+          .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
+          .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U');
+}
+function showAlert(msg){ window.alert(msg); }
+function $(id){ return document.getElementById(id); }
 
-// Crea opciones para selects
+// ----------------------------------------------------
+//  Inicialización
+// ----------------------------------------------------
+function init() {
+  buildSelects();
+  $('btnGuardar').onclick = guardarIntento;
+  $('btnReset').onclick   = resetear;
+  $('btnCalcular').onclick= generarListas;
+}
+
 function buildSelects(){
-  for(let i=0;i<5;i++){
-    const sel=document.getElementById('color'+i);
+  for (let i=0;i<5;i++){
+    const sel = $('color'+i);
+    sel.innerHTML = '';
     COLORS.forEach(c=>{
-      const opt=document.createElement('option');opt.value=c;opt.textContent=c.charAt(0).toUpperCase()+c.slice(1);
+      const opt=document.createElement('option');
+      opt.value=c;
+      opt.textContent=c.charAt(0).toUpperCase()+c.slice(1);
       sel.appendChild(opt);
     });
     sel.value='gris';
   }
 }
 
-
-// ------------ Entrada y validación ------------------
+// ----------------------------------------------------
+//  Captura de intentos
+// ----------------------------------------------------
 function leerColores(){
   const arr=[];
-  for(let i=0;i<5;i++){arr.push(document.getElementById('color'+i).value);}
+  for(let i=0;i<5;i++) arr.push($('color'+i).value);
   return arr;
 }
 
 function guardarIntento(){
-  const word = normalizar(document.getElementById('guess').value.trim());
-  if(!/^[A-ZÑ]{5}$/.test(word)){showAlert("Introduce exactamente 5 letras (A‑Z/Ñ).");return;}
-  if(!diccionario.includes(word)){if(!confirm("La palabra '"+word+"' no está en el diccionario ¿continuar?"))return;}
-  history.push({word,colors:leerColores()});
-  document.getElementById('guess').value='';
-  for(let i=0;i<5;i++)document.getElementById('color'+i).value='gris';
+  const word = normalizar($('guess').value.trim());
+  if(!/^[A-ZÑ]{5}$/.test(word)){ showAlert('Introduce una palabra de 5 letras.'); return;}
+  const colors = leerColores();
+  history.push({word,colors});
+  $('guess').value='';
+  for(let i=0;i<5;i++) $('color'+i).value='gris';
   renderHistorial();
 }
 
 function resetear(){
   history=[];
-  ['tablaResolver','tablaDescartar','tablaVerde','tablaLetras'].forEach(id=>document.getElementById(id).querySelector('tbody').innerHTML='');
+  ['tablaResolver','tablaDescartar','tablaVerde','tablaLetras'].forEach(id=>{
+    const tbody=$(id).querySelector('tbody');
+    if(tbody) tbody.innerHTML='';
+  });
   renderHistorial();
 }
 
 function renderHistorial(){
-  const div=document.getElementById('historial');
-  div.textContent = history.map(h=>h.word+' → '+h.colors.join(', ')).join('\n');
+  $('historial').textContent = history.map(h=>h.word+' → '+h.colors.join(', ')).join('\n');
 }
 
-// ------------ Motor Wordle --------------------------
-function filtrar(dic){
-  let posibles=dic;
-  for(const h of history){
-    posibles = posibles.filter(pal=>cumplePatron(pal,h.word,h.colors));
-  }
-  return posibles;
-}
-
-function cumplePatron(pal, intento, colores){
-  for(let i=0;i<5;i++){
-    const letra=intento[i];
-    switch(colores[i]){
-      case 'verde': if(pal[i]!==letra) return false; break;
-      case 'amarillo': if(!pal.includes(letra)||pal[i]===letra) return false; break;
-      case 'gris':
-        // letra gris excepto si aparece en otra posición marcada verde/amarilla
-        let presenteEnOtra=false;
-        for(let j=0;j<5;j++){if(j!==i && intento[j]===letra && colores[j]!=='gris'){presenteEnOtra=true;break;}}
-        if(!presenteEnOtra && pal.includes(letra)) return false;
-        break;
-    }
-  }
-  return true;
-}
-
-// patrón codificado 0 gris,1 amarillo,2 verde (string de 5 dígitos)
-function obtenerPatron(secret, intento){
-  const res=Array(5).fill(0);
-  const usado=Array(5).fill(false);
-  for(let i=0;i<5;i++){ if(intento[i]===secret[i]){res[i]=2;usado[i]=true;} }
-  for(let i=0;i<5;i++){
-    if(res[i]===0){
-      for(let j=0;j<5;j++){
-        if(!usado[j]&&intento[i]===secret[j]){
-          res[i]=1;usado[j]=true;break;
-        }
-      }
-    }
-  }
-  return res.join('');
-}
-
-function entropiaExacta(pal,candidatos){
-  const patrones={};
-  for(const sec of candidatos){
-    const pat=obtenerPatron(sec,pal);
-    patrones[pat]=(patrones[pat]||0)+1;
-  }
-  let e=0,total=candidatos.length;
-  for(const k in patrones){
-    const p=patrones[k]/total;
-    e+=p*Math.log2(1/p);
-  }
-  return e;
-}
-
-// ------------ Listas y scores -----------------------
+// ----------------------------------------------------
+//  Generación de listas
+// ----------------------------------------------------
 function generarListas(){
-  const cand=filtrar(diccionario);
-  if(cand.length===0){showAlert("Ninguna palabra cumple las pistas.");return;}
+  const reglas = construirReglasFiltro();
+  const cand = filtrarCandidatas(diccionario, reglas);
+  if(cand.length===0){ showAlert('Ninguna palabra cumple las pistas.'); return; }
 
-  // --- lista resolver (sobre candidatas)
-  const listaResolver = cand.map(w=>({w, h:entropiaExacta(w,cand)}))
-                            .sort((a,b)=>b.h-a.h)
-                            .slice(0,TOP_N_OUT);
+  const useExact = cand.length <= EXACT_THRESHOLD;
 
-  // --- lista descartadoras (todas palabras vs cand) con penalización por letras vistas
-  const knownLetters = new Set();
-  for(const h of history){
-    h.colors.forEach((c,i)=>{ if(c!=='gris') knownLetters.add(h.word[i]); });
+  // Resolver
+  const scoreMapResolver = useExact ? null : scoreRapido(cand);
+  const listaResolver = cand.map(w=>{
+    const h = useExact ? entropiaExacta(w,cand) : scoreMapResolver.get(w);
+    return {w,h};
+  }).sort((a,b)=>b.h-a.h).slice(0,TOP_N_OUT);
+
+  // Pistas acumuladas
+  const {setKnown,setGreen,setGray} = acumularPistas();
+
+  // Descartar
+  const listaDescartar = sugerirExploratorias(cand,setKnown,setGray).slice(0,TOP_N_DESC);
+
+  // Repetición verde
+  const listaVerde = sugerirVerdesRep(cand,setKnown,setGreen,setGray,reglas.patron).slice(0,TOP_N_DESC);
+
+  // Ajustar puntuaciones si hace falta
+  if(useExact){
+    listaDescartar.forEach(o=>o.h=entropiaExacta(o.w,cand));
+    listaVerde.forEach(o=>o.h=entropiaExacta(o.w,cand));
+  }else{
+    const mapDesc=scoreRapido(listaDescartar.map(o=>o.w));
+    listaDescartar.forEach(o=>o.h=mapDesc.get(o.w));
+    const mapVer=scoreRapido(listaVerde.map(o=>o.w));
+    listaVerde.forEach(o=>o.h=mapVer.get(o.w));
   }
+  listaDescartar.sort((a,b)=>b.h-a.h);
+  listaVerde.sort((a,b)=>b.h-a.h);
 
-  function scoreExploratoria(w){
-    let rep=false, total=0;
-    const usadas=new Set();
-    for(const ch of w){
-      if(usadas.has(ch)) continue;
-      usadas.add(ch);
-      if(knownLetters.has(ch)) rep=true;
-      else total++;
-    }
-    return total - (rep?1:0);
-  }
+  // Tabla de letras
+  const tablaFreq = construirTablaLetras(cand);
 
-  const candidatasProbe = diccionario.map(w=>({w,pen:scoreExploratoria(w)}))
-                                     .filter(o=>o.pen>0);
-
-  const listaDescartar = candidatasProbe.map(o=>({w:o.w,h:entropiaExacta(o.w,cand)}))
-                                        .sort((a,b)=>b.h-a.h)
-                                        .slice(0,TOP_N_DESC);
-
-  // --- repetición verde
-  const verdes=new Set();
-  for(const h of history){
-    h.colors.forEach((c,i)=>{ if(c==='verde') verdes.add(h.word[i]); });
-  }
-  const listaVerde = diccionario.filter(w=>{
-                            for(const ch of verdes){
-                              if(w.includes(ch) && w.split(ch).length-1>=2) return true;
-                              if(w.includes(ch) && !verdes.has(ch) ) return true;
-                            }
-                            return false;
-                          })
-                          .map(w=>({w,h:entropiaExacta(w,cand)}))
-                          .sort((a,b)=>b.h-a.h)
-                          .slice(0,TOP_N_DESC);
-
-  // --- frecuencias
-  const freq = {};
-  for(const ch of "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"){
-    freq[ch]={count:0, words:0, rep:0};
-  }
-  for(const w of cand){
-    const used=new Set();
-    for(const ch of w){
-      freq[ch].count++;
-      used.add(ch);
-    }
-    used.forEach(ch=>freq[ch].words++);
-    for(const ch of w){
-      if(w.split(ch).length-1>=2){freq[ch].rep++; }
-    }
-  }
-  const tablaFreq = Object.entries(freq)
-    .sort((a,b)=>b[1].words - a[1].words)
-    .map(([letra,v])=>({letra,...v}));
-
-  // --- render
+  // Render
   renderTabla('tablaResolver',listaResolver);
   renderTabla('tablaDescartar',listaDescartar);
   renderTabla('tablaVerde',listaVerde);
   renderTablaFreq('tablaLetras',tablaFreq);
 }
 
-function renderTabla(id,lista){
-  const tbody=document.getElementById(id).querySelector('tbody');
-  tbody.innerHTML='';
-  for(const o of lista){
-    const tr=document.createElement('tr');
-    const tdw=document.createElement('td');tdw.textContent=o.w;
-    const tds=document.createElement('td');tds.textContent=o.h.toFixed(2);
-    tr.appendChild(tdw);tr.appendChild(tds);tbody.appendChild(tr);
+// ----------------------------------------------------
+//  Filtrado de candidatas
+// ----------------------------------------------------
+function construirReglasFiltro(){
+  const patronArr=Array(5).fill('?');
+  const setYellow=new Set(), setGreen=new Set(), setGray=new Set();
+  const posForbidden=[];
+  for(const h of history){
+    for(let i=0;i<5;i++){
+      const ch=h.word[i], col=h.colors[i];
+      if(col==='verde'){
+        patronArr[i]=ch; setGreen.add(ch); setGray.delete(ch);
+      }else if(col==='amarillo'){
+        setYellow.add(ch); posForbidden.push({ch,pos:i}); setGray.delete(ch);
+      }else{ // gris
+        if(!setGreen.has(ch) && !setYellow.has(ch)) setGray.add(ch);
+      }
+    }
   }
+  return {patron:patronArr.join(''), setYellow,setGreen,setGray,posForbidden};
 }
-function renderTablaFreq(id,lista){
-  const tbody=document.getElementById(id).querySelector('tbody');
+
+function filtrarCandidatas(arrBase, reglas){
+  if(history.length===0) return arrBase.slice();
+  const {patron,setYellow,setGray,posForbidden}=reglas;
+  return arrBase.filter(word=>{
+    // verdes
+    for(let i=0;i<5;i++) if(patron[i]!=='?' && word[i]!==patron[i]) return false;
+    // amarillas
+    for(const {ch,pos} of posForbidden) if(word[pos]===ch) return false;
+    for(const ch of setYellow) if(!word.includes(ch)) return false;
+    // grises
+    for(const ch of setGray) if(word.includes(ch)) return false;
+    return true;
+  });
+}
+
+function acumularPistas(){
+  const setKnown=new Set(), setGreen=new Set(), setGray=new Set();
+  for(const h of history){
+    for(let i=0;i<5;i++){
+      const ch=h.word[i], col=h.colors[i];
+      if(col!=='gris') setKnown.add(ch);
+      if(col==='verde') setGreen.add(ch);
+      else if(col==='gris' && !setKnown.has(ch)) setGray.add(ch);
+    }
+  }
+  return {setKnown,setGreen,setGray};
+}
+
+// ----------------------------------------------------
+//  Patron / feedback key
+// ----------------------------------------------------
+function obtenerPatron(sol,guess){
+  const res=Array(5).fill(0), usado=Array(5).fill(false);
+  // verdes
+  for(let i=0;i<5;i++) if(guess[i]===sol[i]){res[i]=2; usado[i]=true;}
+  // amarillas
+  for(let i=0;i<5;i++){
+    if(res[i]===0){
+      for(let j=0;j<5;j++){
+        if(!usado[j] && guess[i]===sol[j]){res[i]=1; usado[j]=true; break;}
+      }
+    }
+  }
+  return res.join('');
+}
+
+// ----------------------------------------------------
+//  EntropiaExacta
+// ----------------------------------------------------
+function entropiaExacta(guess,candidatos){
+  const patrones=Object.create(null);
+  const total=candidatos.length;
+  for(const sol of candidatos){
+    const key=obtenerPatron(sol,guess);
+    patrones[key]=(patrones[key]||0)+1;
+  }
+  let sumSq=0;
+  for(const cnt of Object.values(patrones)) sumSq+=cnt*cnt;
+  return total - sumSq/total;
+}
+
+// ----------------------------------------------------
+//  ScoreRapido
+// ----------------------------------------------------
+function scoreRapido(lista){
+  const freq=new Map();
+  for(const w of lista) for(const ch of w) freq.set(ch,(freq.get(ch)||0)+1);
+  const map=new Map();
+  for(const w of lista){
+    let score=0; const seen=new Set();
+    for(const ch of w){
+      if(seen.has(ch)) continue;
+      seen.add(ch); score+=freq.get(ch)||0;
+    }
+    map.set(w,score);
+  }
+  return map;
+}
+
+// ----------------------------------------------------
+//  SugerirExploratorias
+// ----------------------------------------------------
+function sugerirExploratorias(cand,setKnown,setGray){
+  const f=new Map();
+  for(const w of cand) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
+
+  const arr=[];
+  for(const w of diccionario){
+    let score=0, rep=false;
+    const used=new Set();
+    for(const ch of w){
+      if(used.has(ch)) {rep=true; continue;}
+      used.add(ch);
+      if(!setKnown.has(ch) && !setGray.has(ch)) score+=f.get(ch)||0;
+    }
+    if(rep) score-=5;
+    if(score>0) arr.push({w,h:score});
+  }
+  return arr.sort((a,b)=>b.h-a.h);
+}
+
+// ----------------------------------------------------
+//  SugerirVerdesRep
+// ----------------------------------------------------
+function sugerirVerdesRep(cand,setKnown,setGreen,setGray,patron){
+  const f=new Map();
+  for(const w of cand) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
+
+  const arr=[];
+  for(const w of diccionario){
+    // Debe tener al menos una letra verde en otra posición
+    let qualifies=false;
+    for(let i=0;i<5;i++){
+      const ch=w[i];
+      if(setGreen.has(ch) && patron[i]!==ch){qualifies=true; break;}
+    }
+    if(!qualifies) continue;
+
+    let score=0, rep=false;
+    const used=new Set();
+    for(const ch of w){
+      if(used.has(ch)){rep=true; continue;}
+      used.add(ch);
+      if(!setKnown.has(ch) && !setGray.has(ch)) score+=f.get(ch)||0;
+    }
+    if(rep) score-=5;
+    if(score>0) arr.push({w,h:score});
+  }
+  return arr.sort((a,b)=>b.h-a.h);
+}
+
+// ----------------------------------------------------
+//  Tabla de frecuencias de letras
+// ----------------------------------------------------
+function construirTablaLetras(cand){
+  const freq=new Map();
+  const repeats=new Map();
+  for(const w of cand){
+    const seen=new Map();
+    for(const ch of w){
+      freq.set(ch,(freq.get(ch)||0)+1);
+      seen.set(ch,(seen.get(ch)||0)+1);
+    }
+    for(const [ch,cnt] of seen){
+      if(cnt>1) repeats.set(ch,(repeats.get(ch)||0)+1);
+    }
+  }
+  const arr=[];
+  for(const [ch,cnt] of freq){
+    arr.push({ch, cnt, rep:repeats.get(ch)||0});
+  }
+  return arr.sort((a,b)=>b.cnt-a.cnt);
+}
+
+// ----------------------------------------------------
+//  Render de tablas
+// ----------------------------------------------------
+function renderTabla(id,lista){
+  const tbody=$(id).querySelector('tbody');
+  if(!tbody) return;
   tbody.innerHTML='';
-  for(const o of lista){
+  for(const {w,h} of lista){
     const tr=document.createElement('tr');
-    ['letra','count','words','rep'].forEach(k=>{
-      const td=document.createElement('td');td.textContent=o[k];tr.appendChild(td);
-    });
+    const td1=document.createElement('td'); td1.textContent=w;
+    const td2=document.createElement('td'); td2.textContent=h.toFixed(2);
+    tr.appendChild(td1); tr.appendChild(td2);
     tbody.appendChild(tr);
   }
 }
 
-// ----------- eventos UI -----------------------------
-document.getElementById('btnGuardar').onclick=guardarIntento;
-document.getElementById('btnReset').onclick=resetear;
-document.getElementById('btnCalcular').onclick=generarListas;
+function renderTablaFreq(id,lista){
+  const tbody=$(id).querySelector('tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  for(const {ch,cnt,rep} of lista){
+    const tr=document.createElement('tr');
+    [''+ch, cnt, rep].forEach(txt=>{
+      const td=document.createElement('td'); td.textContent=txt; tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+}
