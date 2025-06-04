@@ -1,21 +1,16 @@
-// script_withsearch.js
-// ===============  incluye todas las funciones previas + BuscarPalabrasUsuario  ===============
-/*  *** CARGA EL MISMO CÓDIGO DE script_freqzero.js Y AÑADE:
-      - Gestión de pestañas      (panelSolver / panelBuscar)
-      - Función buscarPalabrasUsuario()
-*/
 
+// script.js  (solver + buscador)
+// ---------------------------------
 document.addEventListener('DOMContentLoaded', ()=>{
-  // pestañas
-  const ps=document.getElementById('panelSolver');
-  const pb=document.getElementById('panelBuscar');
   const tabSolver=document.getElementById('tabSolver');
   const tabLetras=document.getElementById('tabLetras');
-  tabSolver.onclick=()=>{ps.style.display='block';pb.style.display='none';};
-  tabLetras.onclick=()=>{pb.style.display='block';ps.style.display='none';};
+  const ps=document.getElementById('panelSolver');
+  const pb=document.getElementById('panelBuscar');
+  if(tabSolver&&tabLetras){
+    tabSolver.onclick=()=>{ps.style.display='block'; pb.style.display='none';};
+    tabLetras.onclick=()=>{pb.style.display='block'; ps.style.display='none';};
+  }
 });
-
-// ======= (se inyectará todo el contenido de script_freqzero.js aquí) =======
 
 // Wordle Solver – versión web equivalente al Excel v16  (freq‑fix 2025‑06‑04)
 document.addEventListener('DOMContentLoaded', init);
@@ -266,7 +261,6 @@ function renderTablaFreq(id,list){
 }
 
 
-
 // ---------------------------------------------------------------------------
 //  Búsqueda de palabras por letras introducidas por el usuario
 // ---------------------------------------------------------------------------
@@ -279,48 +273,42 @@ function buscarPalabrasUsuario(){
   const input=document.getElementById('inputLetras');
   if(!input) return;
   const letrasRaw = normalizar(input.value.trim()).replace(/[^A-ZÑ]/g,'');
-  const letras=[...new Set(letrasRaw.split(''))];   // únicas
+  const letras=[...new Set(letrasRaw.split(''))];
   if(letras.length===0 || letras.length>5){
     alert('Introduce entre 1 y 5 letras distintas.'); return;
   }
 
-  // 1) lista exacta
   const exact = diccionarioList.filter(w => letras.every(ch=>w.includes(ch)));
   const out=document.getElementById('resultadoBusqueda');
   out.innerHTML='';
 
   if(exact.length){
-     out.appendChild(crearTablaResultados('Palabras que contienen ' + letras.join(', '), exact));
-     return;
+    out.appendChild(crearTablaResultados('Palabras que contienen '+letras.join(', '), exact.slice(0,500)));
+    return;
   }
 
-  // 2) probar descartando una letra, luego dos, etc.
   for(let k=letras.length-1;k>=1;k--){
-    const combos = combinaciones(letras,k);
-    for(const combo of combos){
-      const lista = diccionarioList.filter(w => combo.every(ch=>w.includes(ch)));
+    for(const combo of combinaciones(letras,k)){
+      const lista=diccionarioList.filter(w=>combo.every(ch=>w.includes(ch)));
       if(lista.length){
-        out.appendChild(crearTablaResultados('Contiene '+combo.join(', '), lista.slice(0,200)));
+        out.appendChild(crearTablaResultados('Contiene '+combo.join(', '), lista.slice(0,500)));
         return;
       }
     }
   }
-  out.textContent='No se encontraron palabras con esas letras.';
+  out.textContent='No se encontraron palabras.';
 }
 
-// helper para combos
 function combinaciones(arr,k){
   const res=[];
-  function rec(start,combo){
-    if(combo.length===k){res.push(combo.slice());return;}
+  (function rec(start,stack){
+    if(stack.length===k){res.push(stack.slice());return;}
     for(let i=start;i<arr.length;i++){
-      combo.push(arr[i]); rec(i+1,combo); combo.pop();
+      stack.push(arr[i]); rec(i+1,stack); stack.pop();
     }
-  }
-  rec(0,[]);
+  })(0,[]);
   return res;
 }
-// helper tabla
 function crearTablaResultados(titulo,lista){
   const cont=document.createElement('div');
   const h=document.createElement('h3'); h.textContent=titulo; cont.appendChild(h);
@@ -329,10 +317,9 @@ function crearTablaResultados(titulo,lista){
   const tbody=document.createElement('tbody');
   lista.forEach(w=>{
     const tr=document.createElement('tr');
-    const td=document.createElement('td'); td.textContent=w; tr.appendChild(td);
-    tbody.appendChild(tr);
+    const td=document.createElement('td'); td.textContent=w;
+    tr.appendChild(td); tbody.appendChild(tr);
   });
-  table.appendChild(tbody);
-  cont.appendChild(table);
+  table.appendChild(tbody); cont.appendChild(table);
   return cont;
 }
