@@ -20,6 +20,7 @@ th{background:#f0f0f0;}
   <button id="tabSolver" class="btnTab">Resolver Wordle</button>
   <button id="tabLetras" class="btnTab">Buscar palabras</button>
 </div>
+
 <section id="panelSolver">
   <p>Introduce una palabra de 5 letras:
      <input id="guess" maxlength="5" size="10">
@@ -28,10 +29,11 @@ th{background:#f0f0f0;}
      <button id="btnCalcular">Generar sugerencias</button>
   </p>
   <p>Colores (gris / amarillo / verde):<br>
-    <select id="color0"></select><select id="color1"></select><select id="color2"></select>
-    <select id="color3"></select><select id="color4"></select>
+     <select id="color0"></select><select id="color1"></select><select id="color2"></select>
+     <select id="color3"></select><select id="color4"></select>
   </p>
   <pre id="historial"></pre>
+
   <div class="row">
     <div class="column">
       <h3>Candidatas a resolver</h3>
@@ -46,9 +48,11 @@ th{background:#f0f0f0;}
       <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
+
   <h3>Frecuencias de letras</h3>
   <table id="tablaLetras"><thead><tr><th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th></tr></thead><tbody></tbody></table>
 </section>
+
 <section id="panelBuscar" style="display:none;">
   <p>Introduce de 1 a 5 letras (orden irrelevante):
      <input id="inputLetras" maxlength="5" size="10">
@@ -56,6 +60,7 @@ th{background:#f0f0f0;}
   </p>
   <div id="resultadoBusqueda"></div>
 </section>
+
 <script src="diccionario.js"></script>
 <script src="script.js"></script>
 </body>
