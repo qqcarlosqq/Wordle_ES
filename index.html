@@ -4,25 +4,22 @@
 <meta charset="UTF-8">
 <title>Wordle Solver – Español</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;margin:0 10px;}
+body{font-family:Arial,Helvetica,sans-serif;margin:0 12px;}
 h1{margin:10px 0;}
-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;}
 th,td{padding:3px 6px;border:1px solid #e0e0e0;text-align:left;}
 th{background:#f0f0f0;}
-section{margin-bottom:30px;}
-.btnTab{margin-right:6px;padding:4px 10px;}
+.row{display:flex;gap:12px;}
+.column{flex:1 1 0;min-width:240px;}
+.btnTab{margin-right:8px;padding:4px 10px;}
 </style>
 </head>
 <body>
 <h1>Wordle Solver – Español</h1>
-
-<!-- selector de pestañas -->
 <div>
   <button id="tabSolver" class="btnTab">Resolver Wordle</button>
   <button id="tabLetras" class="btnTab">Buscar palabras</button>
 </div>
-
-<!-- panel solver -->
 <section id="panelSolver">
   <p>Introduce una palabra de 5 letras:
      <input id="guess" maxlength="5" size="10">
@@ -31,28 +28,27 @@ section{margin-bottom:30px;}
      <button id="btnCalcular">Generar sugerencias</button>
   </p>
   <p>Colores (gris / amarillo / verde):<br>
-     <select id="color0"></select>
-     <select id="color1"></select>
-     <select id="color2"></select>
-     <select id="color3"></select>
-     <select id="color4"></select>
+    <select id="color0"></select><select id="color1"></select><select id="color2"></select>
+    <select id="color3"></select><select id="color4"></select>
   </p>
   <pre id="historial"></pre>
-
-  <h3>Candidatas a resolver</h3>
-  <table id="tablaResolver"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-
-  <h3>Mejores para descartar</h3>
-  <table id="tablaDescartar"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-
-  <h3>Repetición verde</h3>
-  <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-
+  <div class="row">
+    <div class="column">
+      <h3>Candidatas a resolver</h3>
+      <table id="tablaResolver"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="column">
+      <h3>Mejores para descartar</h3>
+      <table id="tablaDescartar"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="column">
+      <h3>Repetición verde</h3>
+      <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
   <h3>Frecuencias de letras</h3>
   <table id="tablaLetras"><thead><tr><th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th></tr></thead><tbody></tbody></table>
 </section>
-
-<!-- panel buscar -->
 <section id="panelBuscar" style="display:none;">
   <p>Introduce de 1 a 5 letras (orden irrelevante):
      <input id="inputLetras" maxlength="5" size="10">
@@ -60,7 +56,6 @@ section{margin-bottom:30px;}
   </p>
   <div id="resultadoBusqueda"></div>
 </section>
-
 <script src="diccionario.js"></script>
 <script src="script.js"></script>
 </body>
