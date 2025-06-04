@@ -209,9 +209,16 @@ function construirTablaLetras(cand){
       if(cnt>1) reps.set(ch,(reps.get(ch)||0)+1);
     }
   }
+  // alfabeto castellano (incluyo Ñ)
+  const ALFABETO='ABCDEFGHIJKLMNOPQRSTUVWXYZÑ'.split('');
   const arr=[];
-  for(const [ch,ap] of total){
-    arr.push({ch,ap, w:words.get(ch)||0, rep:reps.get(ch)||0});
+  for(const ch of ALFABETO){
+    arr.push({
+      ch,
+      ap: total.get(ch)||0,
+      w : words.get(ch)||0,
+      rep: reps.get(ch)||0
+    });
   }
   arr.sort((a,b)=> b.w!==a.w ? b.w-a.w : b.ap-a.ap);
   return arr;
