@@ -2,51 +2,68 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Wordle Solver ES</title>
-<link rel="stylesheet" href="style.css">
+<title>Wordle Solver – Español</title>
+<link rel="stylesheet" href="estilos.css">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:0 10px;}
+h1{margin:10px 0;}
+table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;}
+th,td{padding:3px 6px;border:1px solid #e0e0e0;text-align:left;}
+th{background:#f0f0f0;}
+section{margin-bottom:30px;}
+#panelBuscar{display:none;}
+.btnTab{margin-right:6px;padding:4px 10px;}
+</style>
 </head>
 <body>
-  <h1>Wordle Solver – Español</h1>
+<h1>Wordle Solver – Español</h1>
 
-  <section class="input-area">
-    <label for="guess">Introduce una palabra de 5 letras:</label>
-    <input type="text" id="guess" maxlength="5" autocomplete="off">
-    <button id="btnGuardar">Guardar intento</button>
-    <button id="btnReset">Resetear</button>
-    <button id="btnCalcular">Generar sugerencias</button>
-  </section>
+<!-- ===== Selector de paneles ================================================= -->
+<div>
+  <button id="tabSolver" class="btnTab">Resolver Wordle</button>
+  <button id="tabLetras" class="btnTab">Buscar palabras</button>
+</div>
 
-  <section id="color-selectors">
-    <label>Colores (gris / amarillo / verde):</label><br>
-    <select id="color0"></select><select id="color1"></select><select id="color2"></select><select id="color3"></select><select id="color4"></select>
-  </section>
+<!-- ===== PANEL SOLVER (existente) =========================================== -->
+<section id="panelSolver">
+  <p>Introduce una palabra de 5 letras:
+     <input id="guess" maxlength="5" size="10">
+     <button id="btnGuardar">Guardar intento</button>
+     <button id="btnReset">Resetear</button>
+     <button id="btnCalcular">Generar sugerencias</button>
+  </p>
+  <p>Colores (gris / amarillo / verde):<br>
+     <select id="color0"></select>
+     <select id="color1"></select>
+     <select id="color2"></select>
+     <select id="color3"></select>
+     <select id="color4"></select>
+  </p>
+  <pre id="historial"></pre>
 
-  <pre id="historial" class="historial"></pre>
+  <h3>Candidatas a resolver</h3>
+  <table id="tablaResolver"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
 
-  <div id="output-container">
-    <div class="result-column">
-      <h3>Candidatas a resolver</h3>
-      <table id="tablaResolver"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-    </div>
-    <div class="result-column">
-      <h3>Mejores para descartar</h3>
-      <table id="tablaDescartar"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-    </div>
-    <div class="result-column">
-      <h3>Repetición verde</h3>
-      <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
+  <h3>Mejores para descartar</h3>
+  <table id="tablaDescartar"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
 
-  <div class="result-column" style="max-width:640px;margin-top:20px">
-    <h3>Frecuencias de letras</h3>
-    <table id="tablaLetras"><thead><tr>
-      <th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th>
-    </tr></thead><tbody></tbody></table>
-  </div>
+  <h3>Repetición verde</h3>
+  <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
 
-  <script src="diccionario.js"></script>
-  <script src="script.js"></script>
+  <h3>Frecuencias de letras</h3>
+  <table id="tablaLetras"><thead><tr><th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th></tr></thead><tbody></tbody></table>
+</section>
+
+<!-- ===== PANEL BUSCAR PALABRAS ============================================== -->
+<section id="panelBuscar">
+  <p>Introduce de 1 a 5 letras (orden irrelevante):
+     <input id="inputLetras" maxlength="5" size="10">
+     <button id="btnBuscarUsuario">Buscar</button>
+  </p>
+  <div id="resultadoBusqueda"></div>
+</section>
+
+<script src="diccionario.js"></script>
+<script src="script_withsearch.js"></script>
 </body>
 </html>
