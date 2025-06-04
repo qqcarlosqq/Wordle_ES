@@ -86,6 +86,8 @@ function generarListas(){
     listaDescartar.forEach(o=>o.h=m1.get(o.w));
     const m2=scoreRapido(listaVerde.map(o=>o.w));
     listaVerde.forEach(o=>o.h=m2.get(o.w));
+  listaDescartar.sort((a,b)=>b.h-a.h);
+  listaVerde.sort((a,b)=>b.h-a.h);
   }
 
   const tablaFreq = construirTablaLetras(cand);
