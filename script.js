@@ -37,9 +37,9 @@ const EXACT_THRESHOLD = 800;
 
 // ---------------- Utilidades ----------------
 function $(id){ return document.getElementById(id); }
-function normalizar(w){ return w.toUpperCase()
-        .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
-        .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U'); }
+'function normalizar(w){ return w.toUpperCase()
+'        .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
+'        .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U'); }
 
 // ---------------- Inicialización ----------------
 function init(){
