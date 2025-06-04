@@ -33,11 +33,7 @@ const TOP_N_OUT  = 200;
 const TOP_N_DESC = 15;
 const EXACT_THRESHOLD = 800;
 
-// ---------------- Estado ----------------
-//let history = [];   // [{word,colors}]
-//const diccionarioList = (typeof diccionario !== 'undefined')
-//      ? diccionario.map(w=>w.toUpperCase())
-//      : [];
+
 
 // ---------------- Utilidades ----------------
 function $(id){ return document.getElementById(id); }
