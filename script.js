@@ -21,14 +21,10 @@ const EXACT_THRESHOLD = 800; // Límite para usar EntropiaExacta
 //  Estado
 // ----------------------------------------------------
 let history = [];       // [{word:'RASEN', colors:['gris','verde',...]}]
-let diccionario = [];   // cargado dinámicamente desde diccionario.js
+const diccionarioList = (typeof diccionario!=="undefined")
+  ? diccionario.map(w=>w.toUpperCase())
+  : []; // tomado de diccionario.js
 
-if (typeof diccionarioES !== 'undefined') {
-  diccionario = diccionarioES.map(w => w.toUpperCase());
-}
-
-// ----------------------------------------------------
-//  Utilidades
 // ----------------------------------------------------
 function normalizar(w) {
   return w.toUpperCase()
@@ -99,7 +95,7 @@ function renderHistorial(){
 // ----------------------------------------------------
 function generarListas(){
   const reglas = construirReglasFiltro();
-  const cand = filtrarCandidatas(diccionario, reglas);
+  const cand = filtrarCandidatas(diccionarioList, reglas);
   if(cand.length===0){ showAlert('Ninguna palabra cumple las pistas.'); return; }
 
   const useExact = cand.length <= EXACT_THRESHOLD;
@@ -252,7 +248,7 @@ function sugerirExploratorias(cand,setKnown,setGray){
   for(const w of cand) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
 
   const arr=[];
-  for(const w of diccionario){
+  for(const w of diccionarioList){
     let score=0, rep=false;
     const used=new Set();
     for(const ch of w){
@@ -274,7 +270,7 @@ function sugerirVerdesRep(cand,setKnown,setGreen,setGray,patron){
   for(const w of cand) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
 
   const arr=[];
-  for(const w of diccionario){
+  for(const w of diccionarioList){
     // Debe tener al menos una letra verde en otra posición
     let qualifies=false;
     for(let i=0;i<5;i++){
