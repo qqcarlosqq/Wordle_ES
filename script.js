@@ -1,29 +1,3 @@
-// ========= Wordle Solver + BuscarPalabrasUsuario  (versión final) =========
-// 06-05-2025  —  definición única de diccionarioList + normalizar al inicio
-// --------------------------------------------------------------------------
-function normalizar(w){
-  return w.toUpperCase()
-          .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
-          .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U');
-}
-
-var diccionarioList = (typeof diccionario!=='undefined')
-      ? diccionario.map(w=>w.toUpperCase())
-      : [];
-
-document.addEventListener('DOMContentLoaded', () => {
-  const ps=document.getElementById('panelSolver');
-  const pb=document.getElementById('panelBuscar');
-  const tabS=document.getElementById('tabSolver');
-  const tabB=document.getElementById('tabLetras');
-  if (tabS && tabB){
-    tabS.onclick = () => { ps.style.display='block'; pb.style.display='none'; };
-    tabB.onclick = () => { pb.style.display='block'; ps.style.display='none'; };
-  }
-  // forzamos que los <select> se rellenen
-  if (typeof buildSelects === 'function') buildSelects();
-});
-
 // Wordle Solver – versión web equivalente al Excel v16  (freq‑fix 2025‑06‑04)
 document.addEventListener('DOMContentLoaded', init);
 
@@ -33,13 +7,17 @@ const TOP_N_OUT  = 200;
 const TOP_N_DESC = 15;
 const EXACT_THRESHOLD = 800;
 
-
+// ---------------- Estado ----------------
+let history = [];   // [{word,colors}]
+const diccionarioList = (typeof diccionario !== 'undefined')
+      ? diccionario.map(w=>w.toUpperCase())
+      : [];
 
 // ---------------- Utilidades ----------------
-'function $(id){ return document.getElementById(id); }
-'function normalizar(w){ return w.toUpperCase()
-'        .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
-'        .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U'); }
+function $(id){ return document.getElementById(id); }
+function normalizar(w){ return w.toUpperCase()
+        .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
+        .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U'); }
 
 // ---------------- Inicialización ----------------
 function init(){
@@ -268,69 +246,4 @@ function renderTablaFreq(id,list){
     });
     tbody.appendChild(tr);
   }
-}
-
-
-/* -------------------------- BuscarPalabrasUsuario -------------------------*/
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('btnBuscarUsuario');
-  if (btn) btn.onclick = buscarPalabrasUsuario;
-});
-
-function buscarPalabrasUsuario(){
-  const inp = document.getElementById('inputLetras');
-  if (!inp) return;
-  const letrasRaw = normalizar(inp.value.trim()).replace(/[^A-ZÑ]/g,'');
-  const letras = [...new Set(letrasRaw.split(''))];
-  if (letras.length === 0 || letras.length > 5){
-    alert('Introduce entre 1 y 5 letras distintas'); return;
-  }
-  const out = document.getElementById('resultadoBusqueda');
-  out.innerHTML = '';
-
-  // 1) Palabras que contienen todas las letras
-  const exact = diccionarioList.filter(w => letras.every(ch => w.includes(ch)));
-  if (exact.length){
-    out.appendChild(crearTablaResultados('Palabras con '+letras.join(', '), exact));
-    return;
-  }
-  // 2) Ir quitando letras hasta encontrar resultados
-  for (let k = letras.length - 1; k >= 1; k--){
-    for (const combo of combinaciones(letras, k)){
-      const lista = diccionarioList.filter(w => combo.every(ch => w.includes(ch)));
-      if (lista.length){
-        out.appendChild(crearTablaResultados('Contiene '+combo.join(', '), lista));
-        return;
-      }
-    }
-  }
-  out.textContent = 'No se encontraron palabras.';
-}
-
-function combinaciones(arr, k){
-  const res = [];
-  (function rec(start, stack){
-    if (stack.length === k){ res.push(stack.slice()); return; }
-    for (let i = start; i < arr.length; i++){
-      stack.push(arr[i]); rec(i+1, stack); stack.pop();
-    }
-  })(0, []);
-  return res;
-}
-
-function crearTablaResultados(titulo, lista){
-  const cont = document.createElement('div');
-  const h3   = document.createElement('h3'); h3.textContent = titulo;
-  cont.appendChild(h3);
-
-  const table = document.createElement('table');
-  table.innerHTML = '<thead><tr><th>Palabra</th></tr></thead>';
-  const tbody = document.createElement('tbody');
-  lista.slice(0,500).forEach(w => {
-    const tr=document.createElement('tr');
-    const td=document.createElement('td'); td.textContent = w;
-    tr.appendChild(td); tbody.appendChild(tr);
-  });
-  table.appendChild(tbody); cont.appendChild(table);
-  return cont;
 }
