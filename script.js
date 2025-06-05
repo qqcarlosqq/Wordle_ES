@@ -58,7 +58,6 @@ function resetear(){
 function renderHistorial(){
   $('historial').textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
 }
-}
 
 // ---------------- Núcleo de cálculo ----------------
 function generarListas(){
