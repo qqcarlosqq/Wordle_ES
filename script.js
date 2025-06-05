@@ -25,13 +25,6 @@ function init(){
   $('btnGuardar').onclick = guardarIntento;
   $('btnReset').onclick   = resetear;
   $('btnCalcular').onclick= generarListas;
-
-// --- Init ampliado para pestaña "Buscar Palabras" ---
-$('tabSolver') && ($('tabSolver').onclick = ()=>showTab('solver'));
-$('tabLetras') && ($('tabLetras').onclick = ()=>showTab('buscar'));
-$('btnBuscarUsuario') && ($('btnBuscarUsuario').onclick = buscarPalabrasUsuario);
-// Mostrar por defecto el solver
-showTab('solver');
 }
 function buildSelects(){
   for(let i=0;i<5;i++){
@@ -57,19 +50,23 @@ function guardarIntento(){
 }
 function resetear(){
   history=[];
+  if($('candCount')) $('candCount').textContent='0';
   ['tablaResolver','tablaDescartar','tablaVerde','tablaLetras']
     .forEach(id=>$(id).querySelector('tbody').innerHTML='');
   renderHistorial();
 }
 function renderHistorial(){
-  $('historial').textContent = history.map(h=>h.word+' → '+h.colors.join(', ')).join('\\n');
+  $('historial').textContent = history.map(h=>h.word+' → '+h.colors.join(', ')).join('
+');
 }
 
 // ---------------- Núcleo de cálculo ----------------
 function generarListas(){
   const reglas = construirReglasFiltro();
   const cand   = filtrarCandidatas(diccionarioList,reglas);
-  if(cand.length===0){ alert('Ninguna palabra cumple las pistas'); return; }
+  // Actualizar contador de candidatas
+  if($('candCount')) $('candCount').textContent=cand.length;
+  if(cand.length===0){ alert('Ninguna palabra cumple las pistas'); if($('candCount')) $('candCount').textContent='0'; return; }
 
   const useExact = cand.length<=EXACT_THRESHOLD;
   const scoreMap = useExact?null:scoreRapido(cand);
@@ -254,114 +251,4 @@ function renderTablaFreq(id,list){
     });
     tbody.appendChild(tr);
   }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// ---------------- Funcionalidad: Buscar Palabras por letras --------------
-//////////////////////////////////////////////////////////////////////////////
-
-// Cambia entre pestañas "solver" y "buscar"
-function showTab(tab){
-  if(tab==='solver'){
-    $('panelSolver').style.display='';
-    $('panelBuscar').style.display='none';
-    $('tabSolver').disabled=true;
-    $('tabLetras').disabled=false;
-  }else{
-    $('panelSolver').style.display='none';
-    $('panelBuscar').style.display='';
-    $('tabSolver').disabled=false;
-    $('tabLetras').disabled=true;
-    // Limpiar resultados anteriores (opcional)
-    // $('resultadoBusqueda').innerHTML='';
-  }
-}
-
-// Genera todas las combinaciones (subconjuntos) de un array de longitud 'k'
-function combos(arr,k){
-  const res=[];
-  function backtrack(start,combo){
-    if(combo.length===k){ res.push(combo.slice()); return;}
-    for(let i=start;i<arr.length;i++){
-      combo.push(arr[i]);
-      backtrack(i+1,combo);
-      combo.pop();
-    }
-  }
-  backtrack(0,[]);
-  return res;
-}
-
-// Busca palabras a partir de las letras introducidas por el usuario
-function buscarPalabrasUsuario(){
-  const input = normalizar(($('inputLetras').value||'').trim());
-  if(!input || !/^[A-ZÑ]{1,5}$/.test(input)){
-    alert('Introduce entre 1 y 5 letras (sin espacios ni caracteres especiales)'); 
-    return;
-  }
-  const letras = Array.from(new Set(input.split(''))); // letras únicas
-  const totalLetras = letras.length;
-
-  // Función que verifica si una palabra contiene todas las letras del conjunto dado
-  const contiene = (word, reqLetters) => reqLetters.every(ch => word.includes(ch));
-
-  let resultadoGlobal = [];
-  let usadas = totalLetras;       // nº de letras finalmente utilizadas
-  let omitidasMax = 0;            // nº máximo de letras omitidas en este resultado
-
-  for(let omitidas=0; omitidas<=totalLetras; omitidas++){
-    const k = totalLetras - omitidas;        // letras que deben aparecer
-    if(k===0) break; // no tiene sentido buscar si descartamos todas
-    const subconjuntos = combos(letras, k);
-    let acumulado = [];
-    for(const sub of subconjuntos){
-      const encontrados = diccionarioList.filter(w => contiene(w, sub));
-      // etiquetar cada palabra con nº omitidas para tabla
-      acumulado.push(...encontrados.map(word=>({word,omitidas})));
-    }
-    // eliminar duplicados manteniendo primer registro
-    const uniques = [];
-    const seen = new Set();
-    for(const obj of acumulado){
-      if(!seen.has(obj.word)){
-        seen.add(obj.word);
-        uniques.push(obj);
-      }
-    }
-    if(uniques.length){
-      resultadoGlobal = uniques;
-      usadas = k;
-      omitidasMax = omitidas;
-      break; // detenemos búsqueda en cuanto hay resultados
-    }
-  }
-
-  // Mostrar resultados
-  const cont = $('resultadoBusqueda');
-  cont.innerHTML='';
-  if(!resultadoGlobal.length){
-    cont.textContent='No se encontraron palabras que contengan esas letras.';
-    return;
-  }
-
-  const msg = document.createElement('p');
-  msg.textContent = resultadoGlobal.length + 
-     ' palabra(s) encontradas con ' + usadas +
-     ' de las ' + totalLetras + ' letras obligatorias.';
-  cont.appendChild(msg);
-
-  // Crear tabla
-  const table = document.createElement('table');
-  table.innerHTML='<thead><tr><th>Omitidas</th><th>Palabra</th></tr></thead>';
-  const tbody = document.createElement('tbody');
-  // ordenar resultados alfabéticamente
-  resultadoGlobal.sort((a,b)=> a.word.localeCompare(b.word,'es'));
-  for(const {word,omitidas} of resultadoGlobal){
-    const tr=document.createElement('tr');
-    const td1=document.createElement('td'); td1.textContent=omitidas; tr.appendChild(td1);
-    const td2=document.createElement('td'); td2.textContent=word;    tr.appendChild(td2);
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  cont.appendChild(table);
 }
