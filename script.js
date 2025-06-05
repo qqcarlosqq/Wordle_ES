@@ -1,248 +1,290 @@
-// Wordle Solver – versión web equivalente al Excel v16  + Compare(≤25)  2025-06-06
+// Wordle Solver — Español   v5.2  (con pestaña Comparar ≤25)
 
-/* ===================== CONFIG ===================== */
-const COLORS        = ["gris","amarillo","verde"];
-const TOP_N_OUT     = 200;
-const TOP_N_DESC    = 15;
-const EXACT_THRESH  = 800;
-const ALFABETO_ES   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÑ'.split('');
+/* =================== PARÁMETROS =================== */
+const COLORES = ["gris","amarillo","verde"];
+const ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+const EXCEL_THRESHOLD = 800;     // entropía exacta hasta este tamaño
 
-/* ===================== ESTADO ===================== */
-let history = [];   // [{word,colors}]
-const diccionarioList = (typeof diccionario!=='undefined')
-      ? diccionario.map(w=>w.toUpperCase())
-      : [];
+/* ==================== ESTADO ====================== */
+const dicList = (typeof diccionario !== "undefined")
+  ? diccionario.map(x => x.toUpperCase())
+  : [];
 
-/* ===================== UTIL ===================== */
-function $(id){return document.getElementById(id);}
-function normalizar(w){return w.toUpperCase()
-        .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I')
-        .replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U');}
-function ensureBody(tblId){
-  const t=$(tblId); if(!t) return null;
-  let b=t.querySelector('tbody');
-  if(!b){b=document.createElement('tbody'); t.appendChild(b);} return b;
+let history = [];          // [{word:'RASEN', colors:['gris',…]}]
+let candidatas = [];       // se recalcula con “Generar sugerencias”
+let entropyCache = {};     // palabra -> H
+let cacheVersion = 0;      // invalidar al cambiar candidatas
+
+/* ==================== UTILS ======================= */
+const $ = id => document.getElementById(id);
+const on = (id, fn) => $(id).addEventListener("click", fn);
+function ensureBody(id) {
+  const t = $(id); if (!t) return null;
+  let b = t.querySelector("tbody");
+  if (!b) { b = document.createElement("tbody"); t.appendChild(b); }
+  return b;
+}
+function normal(w) {
+  return w.toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar acentos
+    .replace(/Ü/g,'U');
 }
 
-/* ===================== INIT ===================== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  buildSelects();
-  $('btnGuardar').onclick = guardarIntento;
-  $('btnReset').onclick   = resetear;
-  $('btnCalcular').onclick= generarListas;
-  $('btnBuscarUsuario').onclick = buscarPalabrasUsuario;
-  $('tabSolver').onclick  = ()=>showTab('solver');
-  $('tabLetras').onclick  = ()=>showTab('buscar');
-  $('tabCompare').onclick = ()=>showTab('compare');
-  $('btnRunCompare').onclick = runCompare;
-  showTab('solver');
+/* ============ INICIALIZACIÓN DE LA UI ============= */
+document.addEventListener("DOMContentLoaded", () => {
+  construirSelectColores();
+  on("btnGuardar", guardarIntento);
+  on("btnReset",   resetear);
+  on("btnCalcular", generarListas);
+  on("btnBuscarUsuario", buscarPalabrasUsuario);
+  on("btnRunCompare", runCompare);
+
+  on("tabSolver",  () => showTab("solver"));
+  on("tabLetras",  () => showTab("buscar"));
+  on("tabCompare", () => showTab("compare"));
+
+  showTab("solver");
 });
 
-function buildSelects(){
+/* ================ CAMBIO DE PESTAÑA ================ */
+function showTab(name){
+  $("panelSolver").style.display = name==="solver" ? "" : "none";
+  $("panelBuscar").style.display = name==="buscar" ? "" : "none";
+  $("panelCompare").style.display= name==="compare"? "" : "none";
+  ["tabSolver","tabLetras","tabCompare"].forEach(id=>{
+    $(id).classList.toggle("active", id==="tab"+(name==="buscar"?"Letras":name.charAt(0).toUpperCase()+name.slice(1)));
+  });
+}
+
+/* ========= CONSTRUCCIÓN DE SELECT COLORES ========= */
+function construirSelectColores(){
   for(let i=0;i<5;i++){
-    const sel=$('color'+i); sel.innerHTML='';
-    for(const c of COLORS){
-      const opt=document.createElement('option');
-      opt.value=c; opt.textContent=c.charAt(0).toUpperCase()+c.slice(1);
+    const sel = $("color"+i); sel.innerHTML='';
+    COLORES.forEach(c=>{
+      const opt=document.createElement("option"); opt.value=c; opt.textContent=c;
       sel.appendChild(opt);
-    }
-    sel.value='gris';
+    });
+    sel.value="gris";
   }
 }
 
-/* ===================== INTENTOS ===================== */
-function leerColores(){return Array.from({length:5},(_,i)=>$('color'+i).value);}
+/* ================= GESTIÓN INTENTOS ================ */
+function leerColores(){ return Array.from({length:5},(_,i)=>$("color"+i).value); }
+
 function guardarIntento(){
-  const w=normalizar($('guess').value.trim());
-  if(!/^[A-ZÑ]{5}$/.test(w)){alert('Introduce una palabra de 5 letras');return;}
-  history.push({word:w,colors:leerColores()});
-  $('guess').value='';
-  for(let i=0;i<5;i++) $('color'+i).value='gris';
+  const w = normal($("guess").value.trim());
+  if(!/^[A-ZÑ]{5}$/.test(w)){ alert("Introduce 5 letras"); return; }
+  history.push({word:w, colors:leerColores()});
+  $("guess").value='';
+  construirSelectColores();
   renderHistorial();
 }
+
 function resetear(){
-  history=[]; if($('candCount')) $('candCount').textContent='0';
-  ['tablaResolver','tablaDescartar','tablaVerde','tablaLetras']
-    .forEach(id=>ensureBody(id).innerHTML='');
-  $('compareArea').innerHTML='';
+  history=[]; candidatas=[]; entropyCache={}; cacheVersion++;
+  ["tablaResolver","tablaDescartar","tablaVerde","tablaLetras"].forEach(id=>ensureBody(id).innerHTML='');
+  $("candCount").textContent='0';
+  $("compareArea").innerHTML='';
   renderHistorial();
   toggleCompareBtn();
 }
+
 function renderHistorial(){
-  $('historial').textContent=history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
+  $("historial").textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
 }
 
-/* ============== FILTROS Y SUGERENCIAS ============== */
-function construirReglasFiltro(){
-  const patronArr=Array(5).fill('?');
-  const setYellow=new Set(), setGreen=new Set(), setGray=new Set();
-  const posForbidden=[];
+/* ============== FILTRO DE CANDIDATAS =============== */
+function construirFiltro(){
+  const patron = Array(5).fill('.');
+  const setAmar=new Set(), setVerde=new Set(), setGris=new Set();
+  const posNo = []; // {ch,pos}
+
   for(const h of history){
     for(let i=0;i<5;i++){
       const ch=h.word[i], col=h.colors[i];
-      if(col==='verde'){patronArr[i]=ch; setGreen.add(ch); setGray.delete(ch);}
-      else if(col==='amarillo'){setYellow.add(ch); posForbidden.push({ch,pos:i}); setGray.delete(ch);}
-      else if(!setGreen.has(ch)&&!setYellow.has(ch)) setGray.add(ch);
+      if(col==="verde"){ patron[i]=ch; setVerde.add(ch); }
+      else if(col==="amarillo"){ setAmar.add(ch); posNo.push({ch,pos:i}); }
+      else setGris.add(ch);
     }
   }
-  return {patron:patronArr.join(''),setYellow,setGreen,setGray,posForbidden};
+  return {pat:new RegExp('^'+patron.join('')+'$'), setAmar,setVerde,setGris,posNo};
 }
-function filtrarCandidatas(base,{patron,setYellow,setGray,posForbidden}){
-  return base.filter(w=>{
-    for(let i=0;i<5;i++) if(patron[i]!=='?'&&w[i]!==patron[i]) return false;
-    for(const {ch,pos} of posForbidden) if(w[pos]===ch) return false;
-    for(const ch of setYellow) if(!w.includes(ch)) return false;
-    for(const ch of setGray)   if( w.includes(ch)) return false;
+function filtrar(lista,flt){
+  return lista.filter(w=>{
+    if(!flt.pat.test(w)) return false;
+    for(const {ch,pos} of flt.posNo) if(w[pos]===ch) return false;
+    for(const ch of flt.setAmar) if(!w.includes(ch)) return false;
+    for(const ch of flt.setGris) if(!flt.setVerde.has(ch)&&!flt.setAmar.has(ch)&&w.includes(ch)) return false;
     return true;
   });
 }
-function acumularPistas(){
-  const setKnown=new Set(), setGreen=new Set(), setGray=new Set();
-  for(const h of history){
-    for(let i=0;i<5;i++){
-      const ch=h.word[i], col=h.colors[i];
-      if(col!=='gris') setKnown.add(ch);
-      if(col==='verde') setGreen.add(ch);
-      else if(col==='gris'&&!setKnown.has(ch)) setGray.add(ch);
-    }
-  }
-  return {setKnown,setGreen,setGray};
-}
 
-/* ---- Entropía exacta ---- */
-function obtenerPatron(sol,guess){
-  const res=Array(5).fill(0), used=Array(5).fill(false);
-  for(let i=0;i<5;i++) if(guess[i]===sol[i]){res[i]=2; used[i]=true;}
+/* ================ ENTROPÍA EXACTA ================== */
+function keyPatron(sol,guess){
+  const res=Array(5).fill(0), usados=Array(5).fill(false);
+  for(let i=0;i<5;i++) if(sol[i]===guess[i]){res[i]=2; usados[i]=true;}
   for(let i=0;i<5;i++) if(res[i]===0){
-    for(let j=0;j<5;j++){
-      if(!used[j]&&guess[i]===sol[j]){res[i]=1; used[j]=true; break;}
-    }
+    for(let j=0;j<5;j++) if(!usados[j] && guess[i]===sol[j]){res[i]=1; usados[j]=true; break;}
   }
   return res.join('');
 }
-function entropiaExacta(guess,cand){
-  const p={}, N=cand.length;
-  for(const sol of cand){const k=obtenerPatron(sol,guess); p[k]=(p[k]||0)+1;}
-  let sum=0; for(const v of Object.values(p)) sum+=v*v;
-  return N - sum/N;
+function entropia(guess,cands){
+  const mapa=new Map(), n=cands.length;
+  for(const s of cands){ const k=keyPatron(s,guess); mapa.set(k,(mapa.get(k)||0)+1); }
+  const sum2=[...mapa.values()].reduce((a,x)=>a+x*x,0);
+  return n - sum2/n;
 }
 
-/* ---- Score rápido ---- */
+/* ================ SUGERENCIAS RÁPIDO ================ */
 function scoreRapido(lista){
-  const f=new Map();
-  for(const w of lista) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
-  const map=new Map();
-  for(const w of lista){
-    let s=0; const seen=new Set();
-    for(const ch of w){if(!seen.has(ch)){s+=f.get(ch)||0; seen.add(ch);}}
-    map.set(w,s);
-  }
-  return map;
+  const freq=new Map();
+  lista.forEach(w=>w.split('').forEach(ch=>freq.set(ch,(freq.get(ch)||0)+1)));
+  const mapa=new Map();
+  lista.forEach(w=>{
+    let s=0; new Set(w).forEach(ch=>s+=freq.get(ch));
+    mapa.set(w,s);
+  });
+  return mapa;
 }
 
-/* ---- Sugerencias ---- */
-function sugerirExploratorias(cand,setKnown,setGray){
-  const f=new Map(); for(const w of cand) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
-  const arr=[];
-  for(const w of diccionarioList){
-    let s=0,rep=false; const used=new Set();
-    for(const ch of w){
-      if(used.has(ch)){rep=true;continue;} used.add(ch);
-      if(!setKnown.has(ch)&&!setGray.has(ch)) s+=f.get(ch)||0;
-    }
-    if(rep) s-=5; if(s>0) arr.push({w,h:s});
-  }
-  return arr.sort((a,b)=>b.h-a.h);
-}
-function sugerirVerdesRep(cand,setKnown,setGreen,setGray,patron){
-  const f=new Map(); for(const w of cand) for(const ch of w) f.set(ch,(f.get(ch)||0)+1);
-  const arr=[];
-  for(const w of diccionarioList){
-    let ok=false;
-    for(let i=0;i<5;i++){const ch=w[i]; if(setGreen.has(ch)&&patron[i]!==ch){ok=true;break;}}
-    if(!ok) continue;
-    let s=0,rep=false; const used=new Set();
-    for(const ch of w){
-      if(used.has(ch)){rep=true;continue;} used.add(ch);
-      if(!setKnown.has(ch)&&!setGray.has(ch)) s+=f.get(ch)||0;
-    }
-    if(rep) s-=5; if(s>0) arr.push({w,h:s});
-  }
-  return arr.sort((a,b)=>b.h-a.h);
-}
-
-/* ---- Tabla de frecuencias ---- */
-function construirTablaLetras(cand){
-  const total=new Map(), words=new Map(), reps=new Map();
-  for(const w of cand){
-    const seen=new Map();
-    for(const ch of w){
-      total.set(ch,(total.get(ch)||0)+1);
-      seen.set(ch,(seen.get(ch)||0)+1);
-    }
-    for(const [ch,cnt] of seen){
-      words.set(ch,(words.get(ch)||0)+1);
-      if(cnt>1) reps.set(ch,(reps.get(ch)||0)+1);
-    }
-  }
-  const arr=[];
-  for(const ch of ALFABETO_ES){
-    arr.push({ch,ap:total.get(ch)||0,w:words.get(ch)||0,rep:reps.get(ch)||0});
-  }
-  arr.sort((a,b)=>b.w!==a.w ? b.w-a.w : b.ap-a.ap);
-  return arr;
-}
-
-/* ---- Render tablas simples ---- */
-function renderTabla(id,list){
-  const tbody=ensureBody(id); if(!tbody) return; tbody.innerHTML='';
-  for(const {w,h} of list){
-    const tr=document.createElement('tr');
-    [w,h.toFixed(2)].forEach(t=>{
-      const td=document.createElement('td'); td.textContent=t; tr.appendChild(td);});
-    tbody.appendChild(tr);
-  }
-}
-function renderTablaFreq(id,list){
-  const tbody=ensureBody(id); if(!tbody) return; tbody.innerHTML='';
-  for(const {ch,ap,w,rep} of list){
-    const tr=document.createElement('tr');
-    [ch,ap,w,rep].forEach(t=>{
-      const td=document.createElement('td'); td.textContent=t; tr.appendChild(td);});
-    tbody.appendChild(tr);
-  }
-}
-
-/* ===================== GENERAR LISTAS ===================== */
+/* ================ TABLAS PRINCIPALES ================ */
 function generarListas(){
-  const filtro = construirReglasFiltro();
-  const cand   = filtrarCandidatas(diccionarioList,filtro);
-
-  $('candCount').textContent=cand.length;
+  const filtro = construirFiltro();
+  candidatas   = filtrar(dicList, filtro);
+  $("candCount").textContent = candidatas.length;
   toggleCompareBtn();
 
-  if(cand.length===0){alert('Ninguna palabra cumple las pistas');return;}
+  if(candidatas.length===0){ alert("Sin palabras posibles"); return; }
 
-  const useExact = cand.length<=EXACT_THRESH;
-  const scoreMap = useExact?null:scoreRapido(cand);
+  const exact = candidatas.length<=EXCEL_THRESHOLD;
+  const mapaRapido = exact? null : scoreRapido(candidatas);
 
-  const listaResolver = cand.map(w=>({w,
-    h: useExact? entropiaExacta(w,cand):scoreMap.get(w)}))
-    .sort((a,b)=>b.h-a.h).slice(0,TOP_N_OUT);
+  const base = candidatas.map(w=>({
+    w, h: exact? entropia(w,candidatas) : mapaRapido.get(w)
+  })).sort((a,b)=>b.h-a.h);
 
-  const {setKnown,setGreen,setGray}=acumularPistas();
-  const listaDescartar = sugerirExploratorias(cand,setKnown,setGray).slice(0,TOP_N_DESC);
-  const listaVerde     = sugerirVerdesRep(cand,setKnown,setGreen,setGray,filtro.patron).slice(0,TOP_N_DESC);
+  renderTabla("tablaResolver", base.slice(0,200));
 
-  if(useExact){
-    listaDescartar.forEach(o=>o.h=entropiaExacta(o.w,cand));
-    listaVerde.forEach(o=>o.h=entropiaExacta(o.w,cand));
-  }else{
-    const m1=scoreRapido(listaDescartar.map(o=>o.w));
-    listaDescartar.forEach(o=>o.h=m1.get(o.w));
-    const m2=scoreRapido(listaVerde.map(o=>o.w));
-    listaVerde.forEach(o=>o.h=m2.get(o.w));
+  /* mejor descarte rápido: palabras con más letras nuevas */
+  const ya = new Set(); history.forEach(h=>h.word.split('').forEach(ch=>ya.add(ch)));
+  const desc = dicList
+    .filter(w=>!candidatas.includes(w))
+    .map(w=>{
+      const uniq = new Set(w);
+      let s=0; uniq.forEach(ch=>{ if(!ya.has(ch)) s++; });
+      return {w,h:-s};      // negativo → ordenar al revés luego
+    })
+    .sort((a,b)=>a.h-b.h).slice(0,15);
+
+  renderTabla("tablaDescartar", desc.map(o=>({w:o.w,h:-o.h})));
+
+  /* repetición verde */
+  const verde=filtro.pat.source.split('').map((c,i)=>c==='.'?null:filtro.pat.source[i]);
+  const rep = dicList.filter(w=>verde.some((ch,i)=>ch&&w[i]!==ch&&w.includes(ch)))
+                     .map(w=>({w,h: exact? entropia(w,candidatas):0}))
+                     .sort((a,b)=>b.h-a.h).slice(0,15);
+  renderTabla("tablaVerde", rep);
+
+  /* frecuencias */
+  const freq = ALFABETO.map(ch=>{
+    let ap=0,pal=0,rep=0;
+    candidatas.forEach(w=>{
+      let cnt=0; w.split('').forEach(c=>{ if(c===ch){ap++;cnt++;}});
+      if(cnt){pal++; if(cnt>1)rep++; }
+    });
+    return {ch,ap,pal,rep};
+  }).sort((a,b)=>b.pal-a.pal);
+  renderTablaFreq("tablaLetras", freq);
+}
+
+/* ========= RENDER TABLAS GENERALES ========= */
+function renderTabla(id, list){
+  const tb=ensureBody(id); if(!tb) return; tb.innerHTML='';
+  list.forEach(o=>{
+    const tr=document.createElement("tr");
+    ["w","h"].forEach(k=>{
+      const td=document.createElement("td");
+      td.textContent = k==="h" ? o[k].toFixed(2) : o[k];
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+}
+function renderTablaFreq(id,list){
+  const tb=ensureBody(id); if(!tb) return; tb.innerHTML='';
+  list.forEach(r=>{
+    const tr=document.createElement("tr");
+    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{
+      const td=document.createElement("td"); td.textContent=t; tr.appendChild(td);});
+    tb.appendChild(tr);
+  });
+}
+
+/* ================ BUSCAR LETRAS ================ */
+function buscarPalabrasUsuario(){
+  const raw=normal($("inputLetras").value).replace(/[^A-ZÑ]/g,'');
+  if(!raw){alert("Introduce letras");return;}
+  const letras=[...new Set(raw.split(''))];
+  if(letras.length>5){alert("Máximo 5 letras");return;}
+  let res={};
+  for(let omit=0;omit<=letras.length;omit++){
+    const combs=combinar(letras,letras.length-omit);
+    combs.forEach(c=>{
+      const hits=dicList.filter(w=>c.every(l=>w.includes(l)));
+      if(hits.length) res[c.join('')]=hits;
+    });
+    if(Object.keys(res).length) break;
   }
-  listaDescartar.sort((a,b)=>b.h-a.h); listaVerde.sort((a,b)=>b.h-a.h);
+  const div=$("resultadoBusqueda");
+  if(!Object.keys(res).length){div.textContent="Sin resultados";return;}
+  div.innerHTML = Object.entries(res).map(([c,w])=>
+    `<h4>Usando ${c} (${w.length})</h4><pre>${w.join(', ')}</pre>`).join('');
+}
+function combinar(arr,k){
+  const out=[], rec=(idx,comb)=>{
+    if(comb.length===k){out.push(comb.slice());return;}
+    for(let i=idx;i<arr.length;i++){comb.push(arr[i]);rec(i+1,comb);comb.pop();}
+  }; rec(0,[]); return out;
+}
 
-  renderTabla
+/* ================ COMPARAR ≤ 25 ================= */
+function toggleCompareBtn(){ $("tabCompare").disabled=candidatas.length>25; }
+
+/* paleta 25 colores contrastados */
+const palette = [
+  '#ffcc00','#4da6ff','#66cc66','#ff6666','#c58aff','#ffa64d',
+  '#4dd2ff','#99ff99','#ff80b3','#b3b3ff','#ffd24d','#3399ff',
+  '#77dd77','#ff4d4d','#c299ff','#ffb84d','#00bfff','#99e699',
+  '#ff99c2','#9999ff','#ffe066','#0080ff','#66ffb3','#ff4da6','#8080ff'
+];
+
+function runCompare(){
+  if(candidatas.length>25){alert("Necesitas 25 o menos candidatas");return;}
+  const extra=normal($("extraInput").value).split(/[^A-ZÑ]/).filter(x=>x.length===5).slice(0,2);
+  const words=[...candidatas.slice(0,25-extra.length),...extra];
+  const n=words.length; if(!n){$("compareArea").textContent="No words";return;}
+
+  // matriz de patrones
+  const pat=words.map(g=>words.map(s=>keyPatron(s,g)));
+
+  let html='<table style="border-collapse:collapse;font-size:11px"><thead><tr><th></th>';
+  words.forEach(w=>html+=`<th>${w}</th>`); html+='<th>opciones</th></tr></thead><tbody>';
+
+  for(let i=0;i<n;i++){
+    const row=pat[i], grupos={};
+    row.forEach((p,idx)=>{ (grupos[p]=grupos[p]||[]).push(idx); });
+    let colorIdx=0; Object.values(grupos).forEach(g=>{if(g.length>1) g.color=palette[colorIdx++];});
+    let sinJump=0;
+    html+=`<tr><th>${words[i]}</th>`;
+    for(let j=0;j<n;j++){
+      const p=row[j], g=grupos[p];
+      const prox=g.find(c=>c>j); const salto=prox?prox-j:0;
+      if(salto===0) sinJump++;
+      const bg=g.color||'#f2f2f2';
+      html+=`<td style="text-align:center;background:${bg}">${p}-${salto}</td>`;
+    }
+    html+=`<td style="text-align:center;font-weight:bold">${sinJump}</td></tr>`;
+  }
+  html+='</tbody></table>';
+  $("compareArea").innerHTML = html;
+}
