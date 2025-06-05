@@ -251,3 +251,71 @@ function renderTablaFreq(id,list){
     tbody.appendChild(tr);
   }
 }
+// ---------------- Gestión de pestañas ----------------
+function showTab(tab){
+  const solver=$('panelSolver');
+  const buscar=$('panelBuscar');
+  if(!solver || !buscar) return;
+  if(tab==='solver'){
+    solver.style.display='block';
+    buscar.style.display='none';
+  }else{
+    solver.style.display='none';
+    buscar.style.display='block';
+  }
+}
+
+// ---------------- Combinaciones ----------------
+function getCombinations(arr,k){
+  const res=[];
+  (function backtrack(start, path){
+    if(path.length===k){ res.push(path.slice()); return; }
+    for(let i=start;i<arr.length;i++){
+      path.push(arr[i]);
+      backtrack(i+1,path);
+      path.pop();
+    }
+  })(0,[]);
+  return res;
+}
+
+// ---------------- Búsqueda de palabras por letras ----------------
+function buscarPalabrasUsuario(){
+  const raw=$('inputLetras').value.trim();
+  const letrasArr=[...new Set(normalizar(raw).replace(/[^A-ZÑ]/g,'').split(''))];
+  const salida=$('resultadoBusqueda');
+  if(letrasArr.length===0){ salida.innerHTML='<p>Introduce al menos una letra válida.</p>'; return; }
+  const totalOblig=letrasArr.length;
+  let k=totalOblig;
+  let html='';
+  while(k>0){
+    const combos=getCombinations(letrasArr,k);
+    let totalPalabras=0;
+    let detalle='';
+    for(const combo of combos){
+      const palabras=diccionarioList.filter(w=>combo.every(ch=>w.includes(ch)));
+      if(palabras.length>0){
+        totalPalabras+=palabras.length;
+        palabras.sort();
+        detalle+=`<h4>${combo.join('')}</h4><p>${palabras.join(', ')}</p>`;
+      }
+    }
+    if(totalPalabras>0){
+      html=`<p><strong>${totalPalabras} palabra(s) encontradas con ${k} de las ${totalOblig} letras obligatorias.</strong></p>`+detalle;
+      break;
+    }
+    k--;
+  }
+  if(html==='') html='<p>No se encontraron palabras con esas letras.</p>';
+  salida.innerHTML=html;
+}
+
+// ---------------- Init complementario ----------------
+document.addEventListener('DOMContentLoaded', ()=>{
+  const ts=$('tabSolver'), tb=$('tabLetras');
+  if(ts) ts.onclick=()=>showTab('solver');
+  if(tb) tb.onclick=()=>showTab('buscar');
+  const btn=$('btnBuscarUsuario');
+  if(btn) btn.onclick=buscarPalabrasUsuario;
+  showTab('solver'); // por defecto
+});
