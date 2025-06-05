@@ -56,8 +56,8 @@ function resetear(){
   renderHistorial();
 }
 function renderHistorial(){
-  $('historial').textContent = history.map(h=>h.word+' → '+h.colors.join(', ')).join('
-');
+  $('historial').textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
+}
 }
 
 // ---------------- Núcleo de cálculo ----------------
