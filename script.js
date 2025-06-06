@@ -1,48 +1,61 @@
-// Wordle Solver — Español  v5.5  (lista 2 exploratoria sin penalizar amarillas)
+// Wordle Solver — Español  v5.6  (penaliza solo verdes)
 
-/* ---------- Parámetros ---------- */
+/* ---------- Config ---------- */
 const COLORES = ["gris","amarillo","verde"];
 const ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
-const EXACTO = 800;
-const TOP_OUT = 200, TOP_DESC = 15;
+const EXACTO_HASTA = 800;
 
 /* ---------- Diccionario ---------- */
 const dicList = (typeof diccionario !== "undefined")
-  ? diccionario.map(w=>w.toUpperCase())
+  ? diccionario.map(w => w.toUpperCase())
   : [];
 
 /* ---------- Estado ---------- */
-let history=[], candidatas=[], version=0;
-const entCache=new Map();
+let history = [];
+let candidatas = [];
+let version = 0;
+const entCache = new Map(); // palabra -> {v,h}
 
-/* ---------- Utiles DOM ---------- */
-const $=id=>document.getElementById(id);
-const on=(id,fn)=>$(id).addEventListener("click",fn);
-const ensureBody=id=>{const t=$(id);let b=t.querySelector("tbody");
-  if(!b){b=document.createElement("tbody");t.appendChild(b);}return b;};
-const up=s=>s.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/Ü/g,"U");
+/* ---------- Helpers DOM ---------- */
+const $ = id => document.getElementById(id);
+const on = (id,fn)=>$(id).addEventListener("click",fn);
+const ensureBody = id => {
+  const t = $(id); let b = t.querySelector("tbody");
+  if(!b){ b=document.createElement("tbody"); t.appendChild(b); }
+  return b;
+};
+const up = s => s.toUpperCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/Ü/g,"U");
 
-/* ---------- Init ---------- */
+/* ---------- UI ---------- */
 document.addEventListener("DOMContentLoaded",()=>{
   buildSelects();
-  on("btnGuardar",saveGuess); on("btnReset",resetAll); on("btnCalcular",genLists);
-  on("tabSolver",()=>show("solver")); on("tabLetras",()=>show("buscar"));
+  on("btnGuardar",saveGuess);
+  on("btnReset",resetAll);
+  on("btnCalcular",genLists);
+  on("tabSolver", ()=>show("solver"));
+  on("tabLetras", ()=>show("buscar"));
   show("solver");
 });
 function buildSelects(){
   for(let i=0;i<5;i++){
     const s=$("color"+i); s.innerHTML='';
-    COLORES.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;s.appendChild(o);});
+    COLORES.forEach(c=>{
+      const o=document.createElement("option");o.value=c;o.textContent=c;
+      s.appendChild(o);
+    });
     s.value="gris";
   }
 }
-function show(t){$("panelSolver").style.display=t==="solver"?"" :"none";
-  $("panelBuscar").style.display=t==="buscar"?"" :"none";}
+function show(tab){
+  $("panelSolver").style.display = tab==="solver"?"" :"none";
+  $("panelBuscar").style.display = tab==="buscar"?"" :"none";
+}
 
 /* ---------- Historial ---------- */
-function readCols(){return Array.from({length:5},(_,i)=>$("color"+i).value);}
+const readCols = ()=>Array.from({length:5},(_,i)=>$("color"+i).value);
 function saveGuess(){
-  const w=up($("guess").value.trim());
+  const w = up($("guess").value.trim());
   if(!/^[A-ZÑ]{5}$/.test(w)){alert("Introduce 5 letras");return;}
   history.push({word:w,colors:readCols()});
   $("guess").value=''; buildSelects(); renderHist();
@@ -50,18 +63,21 @@ function saveGuess(){
 function resetAll(){
   history=[]; candidatas=[]; entCache.clear(); version++;
   ["tablaResolver","tablaDescartar","tablaVerde","tablaLetras"].forEach(id=>ensureBody(id).innerHTML='');
-  $("candCount").textContent='0'; renderHist();
+  $("candCount").textContent="0"; renderHist();
 }
-function renderHist(){ $("historial").textContent=history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n'); }
+function renderHist(){
+  $("historial").textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
+}
 
-/* ---------- Filtros ---------- */
+/* ---------- Filtro ---------- */
 function buildFiltro(){
-  const pat=Array(5).fill('.'), setG=new Set(), setY=new Set(), setGray=new Set(), posNo=[];
+  const pat=Array(5).fill('.');
+  const setG=new Set(), setY=new Set(), setGray=new Set(), posNo=[];
   history.forEach(h=>{
     for(let i=0;i<5;i++){
       const ch=h.word[i], col=h.colors[i];
-      if(col==="verde"){pat[i]=ch;setG.add(ch);}
-      else if(col==="amarillo"){setY.add(ch);posNo.push({ch,pos:i});}
+      if(col==="verde"){pat[i]=ch; setG.add(ch);}
+      else if(col==="amarillo"){setY.add(ch); posNo.push({ch,pos:i});}
       else setGray.add(ch);
     }
   });
@@ -70,36 +86,42 @@ function buildFiltro(){
 function filtrar(lista,f){
   return lista.filter(w=>{
     if(!f.re.test(w))return false;
-    for(const {ch,pos} of f.posNo)if(w[pos]===ch)return false;
-    for(const ch of f.setY)if(!w.includes(ch))return false;
-    for(const ch of f.setGray)if(!f.setG.has(ch)&&!f.setY.has(ch)&&w.includes(ch))return false;
+    for(const {ch,pos} of f.posNo) if(w[pos]===ch) return false;
+    for(const ch of f.setY) if(!w.includes(ch)) return false;
+    for(const ch of f.setGray)
+      if(!f.setG.has(ch)&&!f.setY.has(ch)&&w.includes(ch)) return false;
     return true;
   });
 }
 
-/* ---------- Entropía exacta (memo) ---------- */
-function patClave(sol,guess){
+/* ---------- Entropía ---------- */
+function pat(sol,guess){
   const r=Array(5).fill(0),u=Array(5).fill(false);
-  for(let i=0;i<5;i++)if(sol[i]===guess[i]){r[i]=2;u[i]=true;}
-  for(let i=0;i<5;i++)if(r[i]===0)for(let j=0;j<5;j++)if(!u[j]&&guess[i]===sol[j]){r[i]=1;u[j]=true;break;}
+  for(let i=0;i<5;i++) if(sol[i]===guess[i]){r[i]=2;u[i]=true;}
+  for(let i=0;i<5;i++) if(r[i]===0)
+    for(let j=0;j<5;j++) if(!u[j]&&guess[i]===sol[j]){r[i]=1;u[j]=true;break;}
   return r.join('');
 }
 function H(word){
-  const c=entCache.get(word); if(c&&c.v===version)return c.h;
-  const n=candidatas.length; if(!n)return 0;
+  const c=entCache.get(word); if(c&&c.v===version) return c.h;
+  const n=candidatas.length;
   const m=new Map(); candidatas.forEach(s=>{
-    const k=patClave(s,word); m.set(k,(m.get(k)||0)+1);});
+    const k=pat(s,word); m.set(k,(m.get(k)||0)+1);});
   const h=n - [...m.values()].reduce((a,x)=>a+x*x,0)/n;
   entCache.set(word,{v:version,h}); return h;
 }
-function scoreRapido(lista){
-  const f=new Map(); lista.forEach(w=>w.split('').forEach(ch=>f.set(ch,(f.get(ch)||0)+1)));
-  const m=new Map(); lista.forEach(w=>{
-    let s=0; new Set(w).forEach(ch=>s+=f.get(ch)); m.set(w,s);});
+function fastScore(lista){
+  const f=new Map();
+  lista.forEach(w=>w.split('').forEach(ch=>f.set(ch,(f.get(ch)||0)+1)));
+  const m=new Map();
+  lista.forEach(w=>{
+    let s=0; new Set(w).forEach(ch=>s+=f.get(ch));
+    m.set(w,s);
+  });
   return m;
 }
 
-/* ---------- Generar listas ---------- */
+/* ---------- Listas ---------- */
 function genLists(){
   const filt=buildFiltro();
   candidatas=filtrar(dicList,filt);
@@ -107,69 +129,65 @@ function genLists(){
   if(!candidatas.length){alert("Sin palabras");return;}
   entCache.clear(); version++;
 
-  const exact=candidatas.length<=EXACTO;
-  const rap=exact?null:scoreRapido(candidatas);
+  const exact=candidatas.length<=EXACTO_HASTA;
+  const rap = exact?null:fastScore(candidatas);
 
   /* Lista 1 */
-  renderTabla("tablaResolver",
+  render("tablaResolver",
     candidatas.map(w=>({w,h:exact?H(w):rap.get(w)}))
-      .sort((a,b)=>b.h-a.h).slice(0,TOP_OUT));
+      .sort((a,b)=>b.h-a.h).slice(0,200));
 
-  /* -------- Lista 2 exploratoria (sólo verdes se ignoran) -------- */
-  const setGreen=new Set(); history.forEach(h=>{
-    h.colors.forEach((c,i)=>{if(c==="verde")setGreen.add(h.word[i]);});
-  });
-  const freq=new Map(); candidatas.forEach(w=>w.split('').forEach(ch=>freq.set(ch,(freq.get(ch)||0)+1)));
-  function scoreExplor(w){
-    let s=0, rep=false, seen=new Set();
-    for(const ch of w){
-      if(seen.has(ch)){rep=true; continue;}
-      seen.add(ch);
-      if(!setGreen.has(ch)) s+=freq.get(ch)||0;
-    }
-    if(rep) s-=5;
-    return s;
+  /* ----- penalizar SOLO verdes ----- */
+  const setGreen=new Set();
+  history.forEach(h=>h.colors.forEach((c,i)=>{if(c==="verde")setGreen.add(h.word[i]);}));
+
+  function scoreDesc(w){
+    let h = exact? H(w) : rap.get(w)||0;
+    setGreen.forEach(ch=>{ if(w.includes(ch)) h-=5; });
+    return h;
   }
-  const listaDesc=dicList.map(w=>({w,h:scoreExplor(w)}))
-                   .sort((a,b)=>b.h-a.h).slice(0,TOP_DESC);
-  renderTabla("tablaDescartar",listaDesc);
+  render("tablaDescartar",
+    dicList.map(w=>({w,h:scoreDesc(w)}))
+           .sort((a,b)=>b.h-a.h).slice(0,15));
 
-  /* -------- Lista 3 repetición verde -------- */
-  const verdePos=Array(5).fill(null);
-  filt.re.source.replace(/[\^$]/g,'').split('').forEach((c,i)=>{if(c!=='.')verdePos[i]=c;});
-  const listaVerde = verdePos.some(x=>x)
-     ? dicList.filter(w=>verdePos.every((ch,i)=>!ch||(w.includes(ch)&&w[i]!==ch)))
+  /* Repetición verde (ya ignoraba amarillas) */
+  const gPos=Array(5).fill(null);
+  filt.re.source.replace(/[\^$]/g,'').split('').forEach((c,i)=>{if(c!=='.')gPos[i]=c;});
+  const listaV = gPos.some(x=>x)
+     ? dicList.filter(w=>gPos.every((ch,i)=>!ch||(w.includes(ch)&&w[i]!==ch)))
               .map(w=>({w,h:exact?H(w):0}))
-              .sort((a,b)=>b.h-a.h).slice(0,TOP_DESC)
+              .sort((a,b)=>b.h-a.h).slice(0,15)
      : [];
-  renderTabla("tablaVerde",listaVerde);
+  render("tablaVerde",listaV);
 
   /* Frecuencias */
-  const freqTab=ALFABETO.map(ch=>{
+  const freq=ALFABETO.map(ch=>{
     let ap=0,pal=0,rep=0;
     candidatas.forEach(w=>{
       const c=w.split('').filter(x=>x===ch).length;
-      if(c){ap+=c;pal++; if(c>1)rep++;}
+      if(c){ap+=c;pal++;if(c>1)rep++;}
     });
     return{ch,ap,pal,rep};
   }).sort((a,b)=>b.pal-a.pal);
-  renderTablaFreq("tablaLetras",freqTab);
+  renderFreq(freq);
 }
 
-/* ---------- Render tablas ---------- */
-function renderTabla(id,list){
+/* ---------- Render ---------- */
+function render(id,list){
   const tb=ensureBody(id);tb.innerHTML='';
   list.forEach(o=>{
     const tr=document.createElement("tr");
-    [o.w,o.h.toFixed(2)].forEach(t=>{const td=document.createElement("td");td.textContent=t;tr.appendChild(td);});
+    [o.w,o.h.toFixed(2)].forEach(t=>{
+      const td=document.createElement("td");td.textContent=t;tr.appendChild(td);});
     tb.appendChild(tr);
   });
 }
-function renderTablaFreq(id,list){
-  const tb=ensureBody(id);tb.innerHTML='';
+function renderFreq(list){
+  const tb=ensureBody("tablaLetras");tb.innerHTML='';
   list.forEach(r=>{
     const tr=document.createElement("tr");
-    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{const td=document.createElement("td");td.textContent=t;tr.appendChild(td);});
+    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{
+      const td=document.createElement("td");td.textContent=t;tr.appendChild(td);});
     tb.appendChild(tr);
   });
 }
