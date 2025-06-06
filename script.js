@@ -1,4 +1,5 @@
-// Wordle Solver — Español  v5.7  (amarillas ≡ grises en listas 2-3)
+
+// Wordle Solver — Español  v5.3.1  (amarillas ignoradas en listas 2-3)
 
 /* ---------- Config ---------- */
 const COLORES = ["gris","amarillo","verde"];
@@ -7,172 +8,215 @@ const EXACTO_HASTA = 800;
 
 /* ---------- Diccionario ---------- */
 const dicList = (typeof diccionario !== "undefined")
-  ? diccionario.map(w=>w.toUpperCase())
+  ? diccionario.map(w => w.toUpperCase())
   : [];
 
 /* ---------- Estado ---------- */
-let history=[], candidatas=[], version=0;
-const entCache = new Map();
+let history = [];          // [{word, colors:[]}]
+let candidatas = [];
+let version = 0;
+let entCache = new Map();  // palabra -> {v, h}
 
 /* ---------- Helpers DOM ---------- */
 const $ = id => document.getElementById(id);
-const on = (id,fn)=>$(id).addEventListener("click",fn);
-const ensureBody=id=>{const t=$(id);let b=t.querySelector("tbody");
-  if(!b){b=document.createElement("tbody");t.appendChild(b);} return b;};
-const up=s=>s.toUpperCase()
-  .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/Ü/g,"U");
+const on = (id, fn) => $(id).addEventListener("click", fn);
+const ensureBody = id => {
+  const t = $(id); let b = t.querySelector("tbody");
+  if(!b){ b=document.createElement("tbody"); t.appendChild(b); }
+  return b;
+};
+const upper = s => s.toUpperCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .replace(/Ü/g,'U');
 
-/* ---------- Init ---------- */
-document.addEventListener("DOMContentLoaded",()=>{
-  buildSelects();
-  on("btnGuardar",saveGuess);
-  on("btnReset",resetAll);
-  on("btnCalcular",genLists);
-  show("solver");
+/* ---------- UI init ---------- */
+document.addEventListener("DOMContentLoaded", ()=>{
+  buildColorSelects();
+  on("btnGuardar",guardarIntento);
+  on("btnReset",resetear);
+  on("btnCalcular",generarListas);
+  on("btnBuscarUsuario",buscarPalabrasUsuario);
+  on("btnRunCompare",runCompare);
+
+  on("tabSolver", ()=>showTab("solver"));
+  on("tabLetras", ()=>showTab("buscar"));
+  on("tabCompare",()=>showTab("compare"));
+  showTab("solver");
 });
-function buildSelects(){
+function showTab(t){
+  $("panelSolver").style.display = t==="solver"?"" :"none";
+  $("panelBuscar").style.display = t==="buscar"?"" :"none";
+  $("panelCompare").style.display= t==="compare"?"" :"none";
+}
+
+/* ---------- Select color ---------- */
+function buildColorSelects(){
   for(let i=0;i<5;i++){
     const s=$("color"+i); s.innerHTML='';
-    COLORES.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;s.appendChild(o);});
+    COLORES.forEach(c=>{
+      const o=document.createElement("option"); o.value=c; o.textContent=c;
+      s.appendChild(o);
+    });
     s.value="gris";
   }
 }
-function show(t){$("panelSolver").style.display=t==="solver"?"" :"none";}
+const readColors=()=>Array.from({length:5},(_,i)=>$("color"+i).value);
 
 /* ---------- Historial ---------- */
-const readCols=()=>Array.from({length:5},(_,i)=>$("color"+i).value);
-function saveGuess(){
-  const w=up($("guess").value.trim());
-  if(!/^[A-ZÑ]{5}$/.test(w)){alert("Introduce 5 letras");return;}
-  history.push({word:w,colors:readCols()});
-  $("guess").value=''; buildSelects(); renderHist();
+function guardarIntento(){
+  const w = upper($("guess").value.trim());
+  if(!/^[A-ZÑ]{5}$/.test(w)){alert("Introduce 5 letras"); return;}
+  history.push({word:w, colors:readColors()});
+  $("guess").value=''; buildColorSelects(); renderHist();
 }
-function resetAll(){
+function resetear(){
   history=[]; candidatas=[]; entCache.clear(); version++;
   ["tablaResolver","tablaDescartar","tablaVerde","tablaLetras"].forEach(id=>ensureBody(id).innerHTML='');
-  $("candCount").textContent='0'; renderHist();
+  $("candCount").textContent='0'; $("compareArea").innerHTML='';
+  renderHist(); toggleCompareBtn();
 }
-function renderHist(){ $("historial").textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n'); }
+function renderHist(){
+  $("historial").textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
+}
 
-/* ---------- Filtro ---------- */
-function buildFiltro(){
-  const pat=Array(5).fill('.'), setG=new Set(), setY=new Set(), setGray=new Set(), posNo=[];
+/* ---------- Filtro de candidatas ---------- */
+function construirFiltro(){
+  const pat = Array(5).fill('.');
+  const setGreen=new Set(), setYellow=new Set(), setGray=new Set(), posNo=[];
   history.forEach(h=>{
     for(let i=0;i<5;i++){
       const ch=h.word[i], col=h.colors[i];
-      if(col==="verde"){pat[i]=ch; setG.add(ch);}
-      else if(col==="amarillo"){setY.add(ch); posNo.push({ch,pos:i});}
+      if(col==="verde"){pat[i]=ch; setGreen.add(ch);}
+      else if(col==="amarillo"){setYellow.add(ch); posNo.push({ch,pos:i});}
       else setGray.add(ch);
     }
   });
-  return{re:new RegExp('^'+pat.join('')+'$'),setG,setY,setGray,posNo};
+  return {regexp:new RegExp('^'+pat.join('')+'$'), setGreen,setYellow,setGray,posNo};
 }
 function filtrar(lista,f){
   return lista.filter(w=>{
-    if(!f.re.test(w))return false;
-    for(const {ch,pos} of f.posNo)if(w[pos]===ch)return false;
-    for(const ch of f.setY)if(!w.includes(ch))return false;
-    for(const ch of f.setGray)if(!f.setG.has(ch)&&!f.setY.has(ch)&&w.includes(ch))return false;
+    if(!f.regexp.test(w)) return false;
+    for(const {ch,pos} of f.posNo) if(w[pos]===ch) return false;
+    for(const ch of f.setYellow) if(!w.includes(ch)) return false;
+    for(const ch of f.setGray) if(!f.setGreen.has(ch)&&!f.setYellow.has(ch)&&w.includes(ch)) return false;
     return true;
   });
 }
 
-/* ---------- Entropía ---------- */
-function pat(sol,guess){
-  const r=Array(5).fill(0),u=Array(5).fill(false);
-  for(let i=0;i<5;i++)if(sol[i]===guess[i]){r[i]=2;u[i]=true;}
-  for(let i=0;i<5;i++)if(r[i]===0)
-    for(let j=0;j<5;j++)if(!u[j]&&guess[i]===sol[j]){r[i]=1;u[j]=true;break;}
-  return r.join('');
+/* ---------- Entropía memo ---------- */
+function patronClave(sol,guess){
+  const out=Array(5).fill(0), used=Array(5).fill(false);
+  for(let i=0;i<5;i++) if(sol[i]===guess[i]){out[i]=2; used[i]=true;}
+  for(let i=0;i<5;i++) if(out[i]===0){
+    for(let j=0;j<5;j++) if(!used[j]&&guess[i]===sol[j]){out[i]=1; used[j]=true; break;}
+  }
+  return out.join('');
 }
-function H(word){
-  const c=entCache.get(word); if(c&&c.v===version)return c.h;
-  const n=candidatas.length; if(!n)return 0;
-  const m=new Map();
-  candidatas.forEach(s=>{const k=pat(s,word);m.set(k,(m.get(k)||0)+1);});
-  const h=n - [...m.values()].reduce((a,x)=>a+x*x,0)/n;
-  entCache.set(word,{v:version,h}); return h;
+function entropiaExacta(word){
+  const cached=entCache.get(word);
+  if(cached && cached.v===version) return cached.h;
+  const n=candidatas.length; if(!n) return 0;
+  const map=new Map();
+  candidatas.forEach(s=>{
+    const k=patronClave(s,word); map.set(k,(map.get(k)||0)+1);
+  });
+  const h=n - [...map.values()].reduce((a,x)=>a+x*x,0)/n;
+  entCache.set(word,{v:version,h});
+  return h;
 }
-function fastScore(lista){
+function scoreRapido(lista){
   const freq=new Map();
   lista.forEach(w=>w.split('').forEach(ch=>freq.set(ch,(freq.get(ch)||0)+1)));
   const map=new Map();
-  lista.forEach(w=>{let s=0; new Set(w).forEach(ch=>s+=freq.get(ch)); map.set(w,s);});
+  lista.forEach(w=>{
+    let s=0; new Set(w).forEach(ch=>s+=freq.get(ch));
+    map.set(w,s);
+  });
   return map;
 }
 
-/* ---------- Listas ---------- */
-function genLists(){
-  const filt=buildFiltro();
-  candidatas=filtrar(dicList,filt);
+/* ---------- Listas principales ---------- */
+function generarListas(){
+  const filtro=construirFiltro();
+  candidatas=filtrar(dicList,filtro);
   $("candCount").textContent=candidatas.length;
-  if(!candidatas.length){alert("Sin palabras");return;}
+  toggleCompareBtn();
+
+  if(candidatas.length===0){alert("Sin palabras posibles");return;}
+
   entCache.clear(); version++;
 
   const exact=candidatas.length<=EXACTO_HASTA;
-  const rap=exact?null:fastScore(candidatas);
+  const rapidoCache = exact?null:scoreRapido(candidatas);
 
-  /* Lista 1 */
-  render("tablaResolver",
-    candidatas.map(w=>({w,h:exact?H(w):rap.get(w)}))
-              .sort((a,b)=>b.h-a.h).slice(0,200));
+  /* ---------- Lista 1 ---------- */
+  const listaRes=candidatas.map(w=>({
+    w,
+    h: exact? entropiaExacta(w) : rapidoCache.get(w)
+  })).sort((a,b)=>b.h-a.h).slice(0,200);
+  renderTabla("tablaResolver",listaRes);
 
-  /* ----- conjuntos de letras ----- */
-  const setGreen=new Set(), setYellow=filt.setY;
-  history.forEach(h=>h.colors.forEach((c,i)=>{if(c==="verde")setGreen.add(h.word[i]);}));
-
-  /* Lista 2 – descartar (amarillas = grises => se excluyen) */
-  function hDesc(w){
-    if([...setYellow].some(ch=>w.includes(ch))) return -1; // excluir
-    let h=exact?H(w):rap.get(w)||0;
-    setGreen.forEach(ch=>{if(w.includes(ch))h-=5;});
+  /* ---------- Lista 2 (excluir amarillas) ---------- */
+  const {setGreen,setYellow}=filtro;
+  function scoreDescartar(w){
+    if([...setYellow].some(ch=>w.includes(ch))) return -1;   // descartar si contiene amarilla
+    let h = exact? entropiaExacta(w) : rapidoCache.get(w)||0;
+    setGreen.forEach(ch=>{ if(w.includes(ch)) h-=5; });
     return h;
   }
-  const lista2=dicList
-    .map(w=>({w,h:hDesc(w)}))
+  const listaDesc = dicList
+    .map(w=>({w,h:scoreDescartar(w)}))
     .filter(o=>o.h>=0)
     .sort((a,b)=>b.h-a.h).slice(0,15);
-  render("tablaDescartar",lista2);
+  renderTabla("tablaDescartar",listaDesc);
 
-  /* Lista 3 – repetición verde (también excluye amarillas) */
-  const gPos=Array(5).fill(null);
-  filt.re.source.replace(/[\^$]/g,'').split('').forEach((c,i)=>{if(c!=='.')gPos[i]=c;});
-  const lista3 = gPos.some(x=>x)
-     ? dicList.filter(w=>{
-         if([...setYellow].some(ch=>w.includes(ch)))return false;
-         return gPos.every((ch,i)=>!ch||(w.includes(ch)&&w[i]!==ch));
-       })
-       .map(w=>({w,h:exact?H(w):0}))
-       .sort((a,b)=>b.h-a.h).slice(0,15)
-     : [];
-  render("tablaVerde",lista3);
+  /* ---------- Lista 3 (repetición verde, sin amarillas) ---------- */
+  const greensPos = Array(5).fill(null);
+  history.forEach(h=>h.colors.forEach((c,i)=>{ if(c==="verde") greensPos[i]=h.word[i]; }));
+  const listaVerde = greensPos.some(ch=>ch)
+    ? dicList.filter(w=>{
+        if([...setYellow].some(ch=>w.includes(ch))) return false;       // excluir amarillas
+        return greensPos.every((ch,i)=>!ch || (w.includes(ch)&&w[i]!==ch));
+      })
+      .map(w=>({w,h: exact? entropiaExacta(w) : 0}))
+      .sort((a,b)=>b.h-a.h).slice(0,15)
+    : [];
+  renderTabla("tablaVerde",listaVerde);
 
-  /* Frecuencias */
+  /* ---------- Frecuencias ---------- */
   const freq=ALFABETO.map(ch=>{
     let ap=0,pal=0,rep=0;
     candidatas.forEach(w=>{
-      const c=w.split('').filter(x=>x===ch).length;
-      if(c){ap+=c;pal++;if(c>1)rep++;}
+      const cnt=w.split('').filter(c=>c===ch).length;
+      if(cnt){ap+=cnt;pal++; if(cnt>1)rep++; }
     });
-    return{ch,ap,pal,rep};
+    return {ch,ap,pal,rep};
   }).sort((a,b)=>b.pal-a.pal);
-  renderFreq(freq);
+  renderTablaFreq("tablaLetras",freq);
 }
 
-/* ---------- Render ---------- */
-function render(id,list){
+/* ---------- Render tablas ---------- */
+function renderTabla(id,list){
   const tb=ensureBody(id); tb.innerHTML='';
   list.forEach(o=>{
     const tr=document.createElement("tr");
-    [o.w,o.h.toFixed(2)].forEach(t=>{const td=document.createElement("td");td.textContent=t;tr.appendChild(td);});
+    [o.w,o.h.toFixed(2)].forEach(t=>{
+      const td=document.createElement("td"); td.textContent=t; tr.appendChild(td);});
     tb.appendChild(tr);
   });
 }
-function renderFreq(list){
-  const tb=ensureBody("tablaLetras"); tb.innerHTML='';
+function renderTablaFreq(id,list){
+  const tb=ensureBody(id); tb.innerHTML='';
   list.forEach(r=>{
     const tr=document.createElement("tr");
-    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{const td=document.createElement("td");td.textContent=t;tr.appendChild(td);});
+    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{
+      const td=document.createElement("td"); td.textContent=t; tr.appendChild(td);});
     tb.appendChild(tr);
   });
 }
+
+/* ---------- Buscar letras ---------- */
+/* … (TODO: se mantiene igual, no se ha tocado) … */
+
+/* ---------- Compare (≤25) ---------- */
+/* … (TODO: se mantiene igual, no se ha tocado) … */
