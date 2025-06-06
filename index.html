@@ -1,80 +1,34 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Wordle Solver – Español</title>
+<meta charset="utf-8">
+<title>Clasificar Wordle ES vs RAE</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;margin:0 12px;}
-h1{margin:10px 0;}
-table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;}
-th,td{padding:3px 6px;border:1px solid #e0e0e0;text-align:left;}
-th{background:#f0f0f0;}
-.row{display:flex;gap:12px;}
-.column{flex:1 1 0;min-width:250px;}
-.btnTab{margin-right:8px;padding:4px 10px;}
+body{font-family:Arial,Helvetica,sans-serif;margin:30px;max-width:700px}
+input[type=file]{margin:8px 0}
+#log{white-space:pre;font-size:13px;background:#f7f7f7;padding:6px}
+a.dl{display:block;margin:6px 0}
 </style>
 </head>
 <body>
-<h1>Wordle Solver – Español</h1>
+<h2>Clasificar palabras de Wordle según la RAE</h2>
 
-<div>
-  <button id="tabSolver"   class="btnTab">Resolver Wordle</button>
-  <button id="tabLetras"   class="btnTab">Buscar palabras</button>
-  <button id="tabCompare"  class="btnTab" disabled>Comparar (≤25)</button>
-</div>
+<label>PDF de la RAE (3 archivos):
+ <input type="file" id="pdfInput" accept="application/pdf" multiple>
+</label><br>
 
-<!-- ------------- PANEL SOLVER ------------- -->
-<section id="panelSolver">
-  <p>Introduce una palabra de 5 letras:
-     <input id="guess" maxlength="5" size="10">
-     <button id="btnGuardar">Guardar intento</button>
-     <button id="btnReset">Resetear</button>
-     <button id="btnCalcular">Generar sugerencias</button>
-  </p>
-  <p>Colores (gris / amarillo / verde):<br>
-     <select id="color0"></select><select id="color1"></select><select id="color2"></select>
-     <select id="color3"></select><select id="color4"></select>
-  </p>
-  <pre id="historial"></pre>
+<label>diccionario.js:
+ <input type="file" id="dicInput" accept=".js">
+</label><br>
 
-  <div class="row">
-    <div class="column">
-      <h3>Candidatas a resolver (<span id="candCount">0</span>)</h3>
-      <table id="tablaResolver"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-    </div>
-    <div class="column">
-      <h3>Mejores para descartar</h3>
-      <table id="tablaDescartar"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-    </div>
-    <div class="column">
-      <h3>Repetición verde</h3>
-      <table id="tablaVerde"><thead><tr><th>Palabra</th><th>H</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
+<button id="runBtn">Clasificar</button>
 
-  <h3>Frecuencias de letras</h3>
-  <table id="tablaLetras"><thead><tr><th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th></tr></thead><tbody></tbody></table>
-</section>
+<h3>Progreso / resultado</h3>
+<pre id="log"></pre>
+<div id="downloads"></div>
 
-<!-- ------------- PANEL BUSCAR ------------- -->
-<section id="panelBuscar" style="display:none;">
-  <p>Introduce de 1 a 5 letras (orden irrelevante):
-     <input id="inputLetras" maxlength="5" size="10">
-     <button id="btnBuscarUsuario">Buscar</button>
-  </p>
-  <div id="resultadoBusqueda"></div>
-</section>
-
-<!-- ------------- PANEL COMPARE ------------- -->
-<section id="panelCompare" style="display:none;">
-  <p>Palabras extra (opcional, máx&nbsp;2, separadas por coma):<br>
-     <input id="extraInput" style="width:300px">
-     <button id="btnRunCompare">Comparar</button>
-  </p>
-  <div id="compareArea" style="overflow:auto;"></div>
-</section>
-
-<script src="diccionario.js"></script>
-<script src="script.js"></script>
+<!-- PDF.js desde CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+<script src="clasifica.js"></script>
 </body>
 </html>
