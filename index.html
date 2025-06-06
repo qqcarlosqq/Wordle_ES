@@ -18,12 +18,10 @@ th{background:#f0f0f0;}
 <h1>Wordle Solver – Español</h1>
 
 <div>
-  <button id="tabSolver"   class="btnTab">Resolver Wordle</button>
-  <button id="tabLetras"   class="btnTab">Buscar palabras</button>
-  <button id="tabCompare"  class="btnTab" disabled>Comparar (≤25)</button>
+  <button id="tabSolver" class="btnTab">Resolver Wordle</button>
+  <button id="tabLetras" class="btnTab">Buscar palabras</button>
 </div>
 
-<!-- ------------- PANEL SOLVER ------------- -->
 <section id="panelSolver">
   <p>Introduce una palabra de 5 letras:
      <input id="guess" maxlength="5" size="10">
@@ -56,22 +54,12 @@ th{background:#f0f0f0;}
   <table id="tablaLetras"><thead><tr><th>Letra</th><th># apariciones</th><th># palabras</th><th># repetidas</th></tr></thead><tbody></tbody></table>
 </section>
 
-<!-- ------------- PANEL BUSCAR ------------- -->
 <section id="panelBuscar" style="display:none;">
   <p>Introduce de 1 a 5 letras (orden irrelevante):
      <input id="inputLetras" maxlength="5" size="10">
      <button id="btnBuscarUsuario">Buscar</button>
   </p>
   <div id="resultadoBusqueda"></div>
-</section>
-
-<!-- ------------- PANEL COMPARE ------------- -->
-<section id="panelCompare" style="display:none;">
-  <p>Palabras extra (opcional, máx&nbsp;2, separadas por coma):<br>
-     <input id="extraInput" style="width:300px">
-     <button id="btnRunCompare">Comparar</button>
-  </p>
-  <div id="compareArea" style="overflow:auto;"></div>
 </section>
 
 <script src="diccionario.js"></script>
