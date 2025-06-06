@@ -1,140 +1,56 @@
+const pdfjsLib = window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.worker.min.js";
 
-let historial = [];
+const log = msg => { document.getElementById("log").textContent += msg+"\n"; };
 
-function leerColores() {
-    const colores = [];
-    for (let i = 0; i < 5; i++) {
-        colores.push(document.getElementById("color" + i).value);
-    }
-    return colores;
-}
+document.getElementById("runBtn").onclick = async ()=>{
+  const pdfFiles=[...document.getElementById("pdfInput").files];
+  const dicFile  =document.getElementById("dicInput").files[0];
+  if(pdfFiles.length!==3 || !dicFile){
+    alert("Selecciona los 3 PDF y diccionario.js");return;}
+  document.getElementById("downloads").innerHTML='';
+  log("Leyendo PDF… (puede tardar)");
+  const raeSet=new Set();
+  for(const f of pdfFiles){
+    await extraerPDF(f,raeSet);
+    log(`· ${f.name} procesado (${raeSet.size} palabras recogidas)`);
+  }
+  log("Leyendo diccionario.js…");
+  const dicText=await dicFile.text();
+  const arr=JSON.parse("["+dicText.split("=[",1)[1].split("];",1)[0]+"]")
+               .map(w=>w.toUpperCase());
+  log(`Palabras Wordle: ${arr.length}`);
 
-function guardarIntento() {
-    const input = document.getElementById("guess").value.toUpperCase();
-    if (!/^[A-ZÑ]{5}$/.test(input)) {
-        alert("Introduce exactamente 5 letras válidas.");
-        return;
-    }
-    const colores = leerColores();
-    historial.push({ palabra: input, colores });
-    document.getElementById("guess").value = "";
-    for (let i = 0; i < 5; i++) {
-        document.getElementById("color" + i).value = "gris";
-    }
-    mostrarHistorial();
-}
+  const listaA=[], listaB=[];
+  arr.forEach(w=>(raeSet.has(w)?listaA:listaB).push(w));
 
-function mostrarHistorial() {
-    const div = document.getElementById("historial");
-    div.innerHTML = "<b>Intentos guardados:</b><br>" + historial.map(h =>
-        `${h.palabra} → ${h.colores.join(", ")}`).join("<br>");
-}
+  crearDescarga("muy_probables.txt",listaA);
+  crearDescarga("poco_probables.txt",listaB);
+  log("Hecho ✔︎");
+};
 
-function resetear() {
-    historial = [];
-    document.getElementById("tablaCandidatas").querySelector("tbody").innerHTML = "";
-    document.getElementById("tablaDescartadoras").querySelector("tbody").innerHTML = "";
-    document.getElementById("historial").innerText = "";
-}
-
-function filtrarConHistorial(dic) {
-    let posibles = dic;
-    for (const intento of historial) {
-        posibles = filtrarDiccionario(intento.palabra, intento.colores, posibles);
-    }
-    return posibles;
-}
-
-function filtrarDiccionario(palabra, colores, base) {
-    return base.filter(pal => {
-        for (let i = 0; i < 5; i++) {
-            const letra = palabra[i];
-            const color = colores[i];
-
-            if (color === "verde" && pal[i] !== letra) return false;
-            if (color === "amarillo" && (!pal.includes(letra) || pal[i] === letra)) return false;
-            if (color === "gris" && pal.includes(letra)) {
-                let apareceEnOtra = false;
-                for (let j = 0; j < 5; j++) {
-                    if (j !== i && palabra[j] === letra && (colores[j] === "verde" || colores[j] === "amarillo")) {
-                        apareceEnOtra = true;
-                        break;
-                    }
-                }
-                if (!apareceEnOtra) return false;
-            }
-        }
-        return true;
+async function extraerPDF(file,set){
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const re=/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{5}/g;
+  for(let p=1;p<=pdf.numPages;p++){
+    const txt=await (await pdf.getPage(p)).getTextContent();
+    const str=txt.items.map(i=>i.str).join(' ');
+    const m=str.match(re); if(!m) continue;
+    m.forEach(w=>{
+      set.add(w.toUpperCase()
+         .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+         .replace('Ü','U'));
     });
+  }
 }
 
-function obtenerPatron(secreta, intento) {
-    const resultado = Array(5).fill(0);
-    const usada = Array(5).fill(false);
-    for (let i = 0; i < 5; i++) {
-        if (intento[i] === secreta[i]) {
-            resultado[i] = 2;
-            usada[i] = true;
-        }
-    }
-    for (let i = 0; i < 5; i++) {
-        if (resultado[i] === 0) {
-            for (let j = 0; j < 5; j++) {
-                if (!usada[j] && intento[i] === secreta[j]) {
-                    resultado[i] = 1;
-                    usada[j] = true;
-                    break;
-                }
-            }
-        }
-    }
-    return resultado.join('');
-}
-
-function entropiaExacta(palabraCandidata, posibles) {
-    const patrones = {};
-    for (const secreta of posibles) {
-        const patron = obtenerPatron(secreta, palabraCandidata);
-        patrones[patron] = (patrones[patron] || 0) + 1;
-    }
-
-    let entropia = 0;
-    const total = posibles.length;
-    for (const patron in patrones) {
-        const p = patrones[patron] / total;
-        entropia += p * Math.log2(1 / p);
-    }
-
-    return entropia;
-}
-
-function calcular() {
-    const posibles = filtrarConHistorial(diccionario);
-    const listaCandidatas = posibles.map(p => ({
-        palabra: p,
-        entropia: entropiaExacta(p, posibles)
-    })).sort((a, b) => b.entropia - a.entropia).slice(0, 200);
-
-    const listaDescartadoras = diccionario.map(p => ({
-        palabra: p,
-        entropia: entropiaExacta(p, posibles)
-    })).sort((a, b) => b.entropia - a.entropia).slice(0, 10);
-
-    renderTabla("tablaCandidatas", listaCandidatas);
-    renderTabla("tablaDescartadoras", listaDescartadoras);
-}
-
-function renderTabla(idTabla, lista) {
-    const tbody = document.getElementById(idTabla).querySelector("tbody");
-    tbody.innerHTML = "";
-    for (const elem of lista) {
-        const fila = document.createElement("tr");
-        const celdaPalabra = document.createElement("td");
-        celdaPalabra.textContent = elem.palabra;
-        const celdaScore = document.createElement("td");
-        celdaScore.textContent = elem.entropia.toFixed(3);
-        fila.appendChild(celdaPalabra);
-        fila.appendChild(celdaScore);
-        tbody.appendChild(fila);
-    }
+function crearDescarga(nombre,lista){
+  const blob=new Blob([lista.join("\n")],{type:"text/plain"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.textContent=`► ${nombre}  (${lista.length})`;
+  a.href=url; a.download=nombre; a.className="dl";
+  document.getElementById("downloads").appendChild(a);
 }
