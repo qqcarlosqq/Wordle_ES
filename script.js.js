@@ -16,18 +16,22 @@ document.getElementById("runBtn").onclick = async ()=>{
     await extraerPDF(f,raeSet);
     log(`· ${f.name} procesado (${raeSet.size} palabras recogidas)`);
   }
-  log("Leyendo diccionario.js…");
-  const dicText=await dicFile.text();
-  const arr=JSON.parse("["+dicText.split("=[",1)[1].split("];",1)[0]+"]")
-               .map(w=>w.toUpperCase());
-  log(`Palabras Wordle: ${arr.length}`);
+/* ...código anterior sin cambios... */
+log("Leyendo diccionario.js…");
+const dicText = await dicFile.text();
+const m = dicText.match(/\[[^\]]+\]/s);
+if(!m){ alert("No se encontró un array en diccionario.js"); return; }
+const wordArray = JSON.parse(m[0]).map(w=>w.toUpperCase());
+log(`Palabras Wordle: ${wordArray.length}`);
 
-  const listaA=[], listaB=[];
-  arr.forEach(w=>(raeSet.has(w)?listaA:listaB).push(w));
+/* el resto igual — usa wordArray en vez de arr */
+const listaA=[], listaB=[];
+wordArray.forEach(w=>(raeSet.has(w)?listaA:listaB).push(w));
 
-  crearDescarga("muy_probables.txt",listaA);
-  crearDescarga("poco_probables.txt",listaB);
-  log("Hecho ✔︎");
+crearDescarga("muy_probables.txt",listaA);
+crearDescarga("poco_probables.txt",listaB);
+log("Hecho ✔︎");
+
 };
 
 async function extraerPDF(file,set){
