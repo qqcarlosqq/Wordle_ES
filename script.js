@@ -1,4 +1,4 @@
-// Wordle Solver — Español  v5.3  (ajuste descartar + repetición verde + entCache)
+// Wordle Solver — Español  v5.4  (ajuste descartar + repetición verde sin amarillas)
 
 /* ---------- Config ---------- */
 const COLORES = ["gris", "amarillo", "verde"];
@@ -154,14 +154,21 @@ function generarListas(){
   const exact=candidatas.length<=EXACTO_HASTA;
   const rapidoCache = exact?null:scoreRapido(candidatas);
 
-  /* Resolver */
+  /* ---------- conjuntos auxiliares ---------- */
+  const yellowLetters = filtro.setYellow;  // letras amarillas totales
+  const contieneAmarilla = w=>{
+    for(const ch of yellowLetters) if(w.includes(ch)) return true;
+    return false;
+  };
+
+  /* ---------- Resolver ---------- */
   const listaRes=candidatas.map(w=>({
     w,
     h: exact? entropiaExacta(w) : rapidoCache.get(w)
   })).sort((a,b)=>b.h-a.h).slice(0,200);
   renderTabla("tablaResolver",listaRes);
 
-  /* Mejor descarte con penalización */
+  /* ---------- Mejor descarte (sin amarillas) ---------- */
   const letrasConocidas=new Set();
   history.forEach(h=>h.word.split('').forEach(ch=>letrasConocidas.add(ch)));
   function scoreDescartar(w){
@@ -170,15 +177,17 @@ function generarListas(){
     return h;
   }
   const listaDesc = dicList
+    .filter(w=>!contieneAmarilla(w))          // **excluye cualquier palabra con amarillas**
     .map(w=>({w,h:scoreDescartar(w)}))
     .sort((a,b)=>b.h-a.h).slice(0,15);
   renderTabla("tablaDescartar",listaDesc);
 
-  /* Repetición verde */
+  /* ---------- Repetición verde (sin amarillas) ---------- */
   const greensPos = Array(5).fill(null);
   history.forEach(h=>h.colors.forEach((c,i)=>{ if(c==="verde") greensPos[i]=h.word[i]; }));
   const listaVerde = dicList
     .filter(w=>{
+      if(contieneAmarilla(w)) return false;   // **excluye amarillas**
       if(!greensPos.some(ch=>ch)) return true;          // sin verdes -> lista genérica
       return greensPos.every((ch,i)=>!ch || (w.includes(ch) && w[i]!==ch));
     })
@@ -186,7 +195,7 @@ function generarListas(){
     .sort((a,b)=>b.h-a.h).slice(0,15);
   renderTabla("tablaVerde",listaVerde);
 
-  /* Frecuencias */
+  /* ---------- Frecuencias ---------- */
   const freq=ALFABETO.map(ch=>{
     let ap=0,pal=0,rep=0;
     candidatas.forEach(w=>{
