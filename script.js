@@ -25,8 +25,11 @@ const ensureBody = id => {
   if(!b){ b=document.createElement("tbody"); t.appendChild(b); }
   return b;
 };
-const upper = s => s.toUpperCase()
-  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+const upper = s => s
+  .toUpperCase()                   // mayúsculas
+  .normalize('NFD')                // descompone (Ñ → N + ̃)
+  .replace(/N\u0303/g,'Ñ')         // re-compone la Ñ
+  .replace(/[\u0300-\u036f]/g,'')  // quita los demás diacríticos
   .replace(/Ü/g,'U');
 
 /* ---------- UI init ---------- */
