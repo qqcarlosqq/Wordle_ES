@@ -3,7 +3,7 @@
 /* ---------- Config ---------- */
 const COLORES = ["gris", "amarillo", "verde"];
 const ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
-const EXACTO_HASTA = 800;   // umbral para usar entropía exacta
+const EXACTO_HASTA = 2000;   // umbral para usar entropía exacta
 
 /* ---------- Diccionario ---------- */
 const dicList = (typeof diccionario !== "undefined")
