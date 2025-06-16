@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -20,7 +20,7 @@ th{background:#f0f0f0;}
 <div>
   <button id="tabSolver"   class="btnTab">Resolver Wordle</button>
   <button id="tabLetras"   class="btnTab">Buscar palabras</button>
-  <button id="tabCompare"  class="btnTab" disabled>Comparar (≤25)</button>
+  <button id="tabCompare"  class="btnTab" disabled>Comparar (≤100)</button>
 </div>
 
 <!-- ------------- PANEL SOLVER ------------- -->
@@ -58,8 +58,8 @@ th{background:#f0f0f0;}
 
 <!-- ------------- PANEL BUSCAR ------------- -->
 <section id="panelBuscar" style="display:none;">
-  <p>Introduce de 1 a 5 letras (orden irrelevante):
-     <input id="inputLetras" maxlength="5" size="10">
+  <p>Introduce de 1 a 10 letras (orden irrelevante):
+     <input id="inputLetras" maxlength="10" size="10">
      <button id="btnBuscarUsuario">Buscar</button>
   </p>
   <div id="resultadoBusqueda"></div>
