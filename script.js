@@ -1,4 +1,4 @@
-// Wordle Solver — Español  v5.4  (ajuste descartar + repetición verde sin amarillas)
+// Wordle Solver — Español  v5.5  (selección hasta 100 candidatas + fix Ñ)
 
 /* ---------- Config ---------- */
 const COLORES = ["gris", "amarillo", "verde"];
@@ -11,41 +11,45 @@ const dicList = (typeof diccionario !== "undefined")
   : [];
 
 /* ---------- Estado ---------- */
-let history = [];          // [{word, colors:[]}]
+let history   = [];            // [{word, colors:[] }]
 let candidatas = [];
-let version = 0;
-let entCache = new Map();  // palabra -> {v, h}
+let version   = 0;
+let entCache  = new Map();     // memo de entropías
 
 /* ---------- Helpers DOM ---------- */
-const $ = id => document.getElementById(id);
+const $  = id => document.getElementById(id);
 const on = (id, fn) => $(id).addEventListener("click", fn);
-const ensureBody = id => {
+const ensureBody = id => {        // devuelve <tbody> existente o nuevo
   const t = $(id); if(!t) return null;
   let b = t.querySelector("tbody");
-  if(!b){ b=document.createElement("tbody"); t.appendChild(b); }
+  if(!b){ b = document.createElement("tbody"); t.appendChild(b); }
   return b;
 };
+
+/* ---------- Normalización robusta que conserva la Ñ ---------- */
 const upper = s => s
-  .toUpperCase()                   // mayúsculas
+  .toUpperCase()
   .normalize('NFD')                // descompone (Ñ → N + ̃)
-  .replace(/N\u0303/g,'Ñ')         // re-compone la Ñ
-  .replace(/[\u0300-\u036f]/g,'')  // quita los demás diacríticos
+  .replace(/N\u0303/g,'Ñ')        // re‑compone la Ñ
+  .replace(/[\u0300-\u036f]/g,'')// quita los demás diacríticos
   .replace(/Ü/g,'U');
 
 /* ---------- UI init ---------- */
 document.addEventListener("DOMContentLoaded", ()=>{
   buildColorSelects();
-  on("btnGuardar",guardarIntento);
-  on("btnReset",resetear);
-  on("btnCalcular",generarListas);
-  on("btnBuscarUsuario",buscarPalabrasUsuario);
-  on("btnRunCompare",runCompare);
+  on("btnGuardar",   guardarIntento);
+  on("btnReset",     resetear);
+  on("btnCalcular",  generarListas);
+  on("btnBuscarUsuario", buscarPalabrasUsuario);
+  on("btnRunCompare", runCompare);
 
   on("tabSolver", ()=>showTab("solver"));
   on("tabLetras", ()=>showTab("buscar"));
   on("tabCompare",()=>showTab("compare"));
   showTab("solver");
 });
+
+/* ---------- Tabs ---------- */
 function showTab(t){
   $("panelSolver").style.display = t==="solver"?"" :"none";
   $("panelBuscar").style.display = t==="buscar"?"" :"none";
@@ -58,7 +62,8 @@ function showTab(t){
 /* ---------- Select color ---------- */
 function buildColorSelects(){
   for(let i=0;i<5;i++){
-    const s=$("color"+i); s.innerHTML='';
+    const s=$("color"+i); if(!s) continue;
+    s.innerHTML='';
     COLORES.forEach(c=>{
       const o=document.createElement("option"); o.value=c; o.textContent=c;
       s.appendChild(o);
@@ -66,20 +71,25 @@ function buildColorSelects(){
     s.value="gris";
   }
 }
-const readColors=()=>Array.from({length:5},(_,i)=>$("color"+i).value);
+const readColors = () => Array.from({length:5},(_,i)=>$("color"+i).value);
 
 /* ---------- Historial ---------- */
 function guardarIntento(){
   const w = upper($("guess").value.trim());
   if(!/^[A-ZÑ]{5}$/.test(w)){alert("Introduce 5 letras"); return;}
   history.push({word:w, colors:readColors()});
-  $("guess").value=''; buildColorSelects(); renderHist();
+  $("guess").value='';
+  buildColorSelects();
+  renderHist();
 }
 function resetear(){
-  history=[]; candidatas=[]; entCache.clear(); version++;
+  history=[];  candidatas=[]; entCache.clear(); version++;
   ["tablaResolver","tablaDescartar","tablaVerde","tablaLetras"].forEach(id=>ensureBody(id).innerHTML='');
-  $("candCount").textContent='0'; $("compareArea").innerHTML='';
-  renderHist(); toggleCompareBtn();
+  $("candCount").textContent='0';
+  $("compareArea").innerHTML='';
+  renderHist();
+  compareSelectMode = false; $("btnRunCompare").textContent = "Comparar";
+  toggleCompareBtn();
 }
 function renderHist(){
   $("historial").textContent = history.map(h=>`${h.word} → ${h.colors.join(', ')}`).join('\n');
@@ -110,7 +120,7 @@ function filtrar(lista,f){
   });
 }
 
-/* ---------- Entropía memo ---------- */
+/* ---------- Métricas ---------- */
 function patronClave(sol,guess){
   const out=Array(5).fill(0), used=Array(5).fill(false);
   for(let i=0;i<5;i++) if(sol[i]===guess[i]){out[i]=2; used[i]=true;}
@@ -149,6 +159,8 @@ function generarListas(){
   candidatas=filtrar(dicList,filtro);
   $("candCount").textContent=candidatas.length;
   toggleCompareBtn();
+  compareSelectMode = false; $("btnRunCompare").textContent = "Comparar";
+  $("compareArea").innerHTML='';
 
   if(candidatas.length===0){alert("Sin palabras posibles");return;}
 
@@ -159,41 +171,21 @@ function generarListas(){
 
   /* ---------- conjuntos auxiliares ---------- */
   const yellowLetters = filtro.setYellow;  // letras amarillas totales
-  const contieneAmarilla = w=>{
-    for(const ch of yellowLetters) if(w.includes(ch)) return true;
-    return false;
-  };
+  const contieneAmarilla = w=>{ for(const ch of yellowLetters) if(w.includes(ch)) return true; return false; };
 
   /* ---------- Resolver ---------- */
-  const listaRes=candidatas.map(w=>({
-    w,
-    h: exact? entropiaExacta(w) : rapidoCache.get(w)
-  })).sort((a,b)=>b.h-a.h).slice(0,200);
+  const listaRes=candidatas.map(w=>({w,h: exact? entropiaExacta(w) : rapidoCache.get(w)}))
+    .sort((a,b)=>b.h-a.h).slice(0,200);
   renderTabla("tablaResolver",listaRes);
 
-  /* ---------- Mejor descarte (sin amarillas) ---------- */
-  const letrasConocidas=new Set();
-  history.forEach(h=>h.word.split('').forEach(ch=>letrasConocidas.add(ch)));
-  function scoreDescartar(w){
-    let h = exact? entropiaExacta(w) : rapidoCache.get(w) || 0;
-    letrasConocidas.forEach(ch=>{ if(w.includes(ch)) h-=5; });
-    return h;
-  }
-  const listaDesc = dicList
-    .filter(w=>!contieneAmarilla(w))          // **excluye cualquier palabra con amarillas**
-    .map(w=>({w,h:scoreDescartar(w)}))
-    .sort((a,b)=>b.h-a.h).slice(0,15);
+  /* ---------- Descartar ---------- */
+  const listaDesc=dicList.filter(w=>!candidatas.includes(w) && !contieneAmarilla(w))
+    .map(w=>({w,h: rapidoCache? rapidoCache.get(w) : entropiaExacta(w)}))
+    .sort((a,b)=>b.h-a.h).slice(0,200);
   renderTabla("tablaDescartar",listaDesc);
 
-  /* ---------- Repetición verde (sin amarillas) ---------- */
-  const greensPos = Array(5).fill(null);
-  history.forEach(h=>h.colors.forEach((c,i)=>{ if(c==="verde") greensPos[i]=h.word[i]; }));
-  const listaVerde = dicList
-    .filter(w=>{
-      if(contieneAmarilla(w)) return false;   // **excluye amarillas**
-      if(!greensPos.some(ch=>ch)) return true;          // sin verdes -> lista genérica
-      return greensPos.every((ch,i)=>!ch || (w.includes(ch) && w[i]!==ch));
-    })
+  /* ---------- Repetición verde ---------- */
+  const listaVerde=candidatas.filter(w=>{ const cs=new Set(w.split('')); return cs.size<5 && ![...cs].some(ch=>yellowLetters.has(ch)); })
     .map(w=>({w,h: exact? entropiaExacta(w) : 0}))
     .sort((a,b)=>b.h-a.h).slice(0,15);
   renderTabla("tablaVerde",listaVerde);
@@ -210,13 +202,12 @@ function generarListas(){
   renderTablaFreq("tablaLetras",freq);
 }
 
-/* ---------- Render tabla genérica ---------- */
+/* ---------- Render tablas ---------- */
 function renderTabla(id,list){
   const tb=ensureBody(id); if(!tb) return; tb.innerHTML='';
-  list.forEach(o=>{
+  list.forEach(r=>{
     const tr=document.createElement("tr");
-    const td1=document.createElement("td"); td1.textContent=o.w; tr.appendChild(td1);
-    const td2=document.createElement("td"); td2.textContent=o.h.toFixed(2); tr.appendChild(td2);
+    [r.w,r.h].forEach(t=>{ const td=document.createElement("td"); td.textContent=t; tr.appendChild(td); });
     tb.appendChild(tr);
   });
 }
@@ -224,9 +215,7 @@ function renderTablaFreq(id,list){
   const tb=ensureBody(id); if(!tb) return; tb.innerHTML='';
   list.forEach(r=>{
     const tr=document.createElement("tr");
-    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{
-      const td=document.createElement("td"); td.textContent=t; tr.appendChild(td);
-    });
+    [r.ch,r.ap,r.pal,r.rep].forEach(t=>{ const td=document.createElement("td"); td.textContent=t; tr.appendChild(td); });
     tb.appendChild(tr);
   });
 }
@@ -237,17 +226,13 @@ function buscarPalabrasUsuario(){
   if(!raw){alert("Introduce letras");return;}
   const letras=[...new Set(raw.split(''))]; if(letras.length>5){alert("Máx 5");return;}
   let res={};
-  for(let om=0;om<=letras.length;om++){
-    combinar(letras,letras.length-om).forEach(c=>{
-      const hits=dicList.filter(w=>c.every(l=>w.includes(l)));
-      if(hits.length) res[c.join('')]=hits;
-    });
-    if(Object.keys(res).length) break;
-  }
-  const div=$("resultadoBusqueda");
-  if(!Object.keys(res).length){div.textContent="Sin resultados";return;}
-  div.innerHTML = Object.entries(res).map(([c,w])=>
+  combinar(letras,Math.min(letras.length,5)).forEach(a=>{
+    const key=a.join('');
+    res[key]=dicList.filter(w=>a.every(ch=>w.includes(ch)));
+  });
+  const html=Object.entries(res).sort((a,b)=>b[0].length-a[0].length).map(([c,w])=>
     `<h4>Usando ${c} (${w.length})</h4><pre style="white-space:pre-wrap">${w.join(', ')}</pre>`).join('');
+  $("resultadoBusqueda").innerHTML=html;
 }
 function combinar(arr,k){
   const out=[],rec=(s,a)=>{ if(a.length===k){out.push(a.slice());return;}
@@ -255,10 +240,10 @@ function combinar(arr,k){
   rec(0,[]); return out;
 }
 
-/* ---------- Compare (≤25) ---------- */
-function toggleCompareBtn(){ $("tabCompare").disabled=candidatas.length>25; }
+/* ---------- Compare (≤100 con selección) ---------- */
+function toggleCompareBtn(){ $("tabCompare").disabled = candidatas.length===0 || candidatas.length>100; }
 
-/* paleta alto contraste 25 colores */
+// paleta alto contraste 25 colores
 const palette=[
 '#ffcc00','#4da6ff','#66cc66','#ff6666','#c58aff','#ffa64d','#4dd2ff','#99ff99',
 '#ff80b3','#b3b3ff','#ffd24d','#3399ff','#77dd77','#ff4d4d','#c299ff','#ffb84d',
